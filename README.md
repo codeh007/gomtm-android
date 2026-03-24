@@ -34,7 +34,8 @@ If future signing or secret-based workflows are introduced, they must be handled
 
 ## Verification
 
-- This phase establishes the bootstrap baseline for future GitHub-based validation; it does **not** mean GitHub Actions checks or release automation are already implemented here.
+- GitHub Actions checks and release automation are part of the repository validation path for this bootstrap app.
+- Each merge to main is expected to create a new GitHub Release with a downloadable APK artifact.
 - Do **not** rely on local builds as the project acceptance path for this phase.
 - Do **not** run local Android build, test, emulator, or release steps as part of this repository bootstrap task.
 
@@ -45,6 +46,5 @@ This phase does **not** yet implement:
 - legacy `apps/android/` migration
 - formal signing and production release setup
 - independent Go/AAR build-chain extraction
-- CI or Release workflow authoring beyond documenting the intended direction
 
 See [`docs/roadmap.md`](docs/roadmap.md) for future evaluation items.
