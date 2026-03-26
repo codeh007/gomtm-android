@@ -4,12 +4,20 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      gomtm_swarm_aar_url:
+        description: Optional direct download URL for a gomtm swarm AAR
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 env:
-  RELEASE_TAG: v0.1.${{ github.run_number }}
+  RELEASE_TAG: v0.2.${{ github.run_number }}
+  GOMTM_SWARM_AAR_URL: ${{ inputs.gomtm_swarm_aar_url || vars.GOMTM_SWARM_AAR_URL }}
+  GOMTM_SWARM_AAR_NAME: ${{ vars.GOMTM_SWARM_AAR_NAME || 'gomtm-swarm-android.aar' }}
 
 jobs:
   release:
@@ -18,6 +26,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Prepare optional gomtm swarm AAR
+        shell: bash
+        run: |
+          mkdir -p app/libs
+          if [ -z "${GOMTM_SWARM_AAR_URL}" ]; then
+            echo "No gomtm swarm AAR configured; releasing the public host shell without a bound runtime."
+            exit 0
+          fi
+
+          target="app/libs/${GOMTM_SWARM_AAR_NAME:-gomtm-swarm-android.aar}"
+          echo "Downloading optional gomtm swarm AAR to ${target}"
+          curl -fL --retry 3 --retry-all-errors "${GOMTM_SWARM_AAR_URL}" -o "${target}"
+          ls -lh app/libs
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -45,5 +67,11 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_TAG }}
+          body: |
+            Public gomtm-android release.
+
+            Integration mode:
+            - with configured gomtm swarm AAR: bound runtime host
+            - without configured gomtm swarm AAR: public host shell only
           files: app/build/outputs/apk/release/app-release-unsigned.apk
           fail_on_unmatched_files: true

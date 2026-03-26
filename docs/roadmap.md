@@ -1,46 +1,71 @@
 # Roadmap
 
-This document records future evaluation topics for the public `gomtm-android` repository.
+This document records the active direction for the public `gomtm-android` repository.
 
-## What this phase is for
+## Direction reset
 
-The current phase is only meant to establish a minimal public Android repository baseline with a HelloWorld app and clear collaboration boundaries.
+Older bootstrap-only wording is superseded.
 
-## Future items to evaluate
+The current source of truth is:
 
-### 1. Legacy Android migration
+- `gomtm-android` is the public Android app host
+- `gomtm` remains the swarm kernel / Android AAR producer
+- swarm-first is the correct order
+- worker control, group control, and reward automation come later
+- monorepo `apps/android/` is migration material only, not the future host repo
 
-Evaluate whether and how the legacy `apps/android/` project should be migrated into this repository.
+## Phase 1: public swarm host shell
 
-Questions to answer later:
-- what code should move first
-- what should remain behind temporarily
-- how to preserve reviewability during migration
+Goals:
 
-### 2. Formal signing and release
+- keep the public Android app repository buildable and releasable via GitHub Actions
+- expose a visible runtime shell for gomtm swarm integration
+- support optional AAR consumption without requiring the AAR to exist in-repo
+- make the app honest about bound vs unbound swarm runtime state
 
-Evaluate the eventual production signing and release approach, including:
-- keystore handling
-- secret management
-- release approval boundaries
-- artifact publication flow
+Deliverables:
 
-### 3. Independent Go/AAR build chain
+- Android host screen for runtime state inspection
+- reflection-based bridge wrapper so the app can compile with or without the AAR
+- CI / release steps that can optionally download a swarm AAR into `app/libs/`
 
-Evaluate how the Go/AAR build chain can be separated and maintained independently from the initial HelloWorld bootstrap setup.
+## Phase 2: gomtm swarm AAR consumption
 
-Questions to answer later:
-- where the build responsibilities should live
-- how generated artifacts should be versioned
-- how CI should validate the chain without coupling everything too early
+Goals:
 
-## Not included in the current phase
+- consume a versioned gomtm-produced Android AAR
+- display real runtime information such as node state, peer id, bootstrap address, and logs
+- keep the app shell repo free from duplicated swarm implementation
 
-The current phase does **not** do any of the following:
+Upstream `gomtm` still needs to settle:
 
-- migrate the legacy `apps/android/` project
-- implement formal signing or production release wiring
-- define or build the Go/AAR pipeline
-- add CI or Release workflow files ahead of the dedicated follow-up work
+- stable Android bridge API
+- downloadable AAR publication path
+- artifact naming and compatibility contract
 
-These topics are intentionally left as future evaluation items rather than present commitments.
+## Phase 3: node lifecycle UX
+
+After Phase 2:
+
+- start / stop controls for the swarm node
+- runtime configuration entry points
+- connection diagnostics and structured logs
+- bootstrap / relay onboarding
+
+## Phase 4: worker and control-plane surfaces
+
+Only after swarm substrate is stable:
+
+- worker metadata
+- heartbeat / presence surfaces
+- minimal control-plane views
+- later group-control integration
+
+## Explicit non-goals for the current phase
+
+The current phase does **not**:
+
+- re-implement libp2p in Kotlin
+- continue feature development in monorepo `apps/android/`
+- promise that a public stable gomtm AAR feed already exists
+- pull reward automation concerns into the Android host shell

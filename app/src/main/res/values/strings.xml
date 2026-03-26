@@ -1,4 +1,20 @@
 <resources>
-    <string name="app_name">Gomtm Android</string>
-    <string name="hello_message">Hello, Gomtm Android!</string>
+    <string name="app_name">gomtm-android</string>
+    <string name="swarm_shell_subtitle">Public Android app host for the gomtm swarm runtime.</string>
+    <string name="refresh_runtime_button">Refresh runtime probe</string>
+    <string name="swarm_runtime_section">Swarm runtime probe</string>
+    <string name="summary_label">Summary</string>
+    <string name="mode_label">Integration mode</string>
+    <string name="bridge_label">Detected bridge class</string>
+    <string name="lifecycle_label">Lifecycle surface</string>
+    <string name="state_label">Runtime state</string>
+    <string name="peer_label">Peer ID</string>
+    <string name="bootstrap_label">Bootstrap address</string>
+    <string name="error_label">Last error</string>
+    <string name="logs_label">Recent logs</string>
+    <string name="status_summary_bound">gomtm swarm bridge detected. This build can interrogate the bound runtime.</string>
+    <string name="status_summary_unbound">No gomtm swarm AAR is currently bound. This APK is acting as the public host shell only.</string>
+    <string name="value_not_available">Not available</string>
+    <string name="value_none">None</string>
+    <string name="value_no_logs_yet">No runtime logs yet.</string>
 </resources>
