@@ -3,9 +3,18 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      gomtm_swarm_aar_url:
+        description: Optional direct download URL for a gomtm swarm AAR
+        required: false
+        type: string
 
 permissions:
   contents: read
+
+env:
+  GOMTM_SWARM_AAR_URL: ${{ inputs.gomtm_swarm_aar_url || vars.GOMTM_SWARM_AAR_URL }}
+  GOMTM_SWARM_AAR_NAME: ${{ vars.GOMTM_SWARM_AAR_NAME || 'gomtm-swarm-android.aar' }}
 
 jobs:
   android:
@@ -14,6 +23,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Prepare optional gomtm swarm AAR
+        shell: bash
+        run: |
+          mkdir -p app/libs
+          if [ -z "${GOMTM_SWARM_AAR_URL}" ]; then
+            echo "No gomtm swarm AAR configured; building the public host shell without a bound runtime."
+            exit 0
+          fi
+
+          target="app/libs/${GOMTM_SWARM_AAR_NAME:-gomtm-swarm-android.aar}"
+          echo "Downloading optional gomtm swarm AAR to ${target}"
+          curl -fL --retry 3 --retry-all-errors "${GOMTM_SWARM_AAR_URL}" -o "${target}"
+          ls -lh app/libs
 
       - name: Set up Java 17
         uses: actions/setup-java@v4

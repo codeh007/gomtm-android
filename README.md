@@ -1,50 +1,64 @@
 # gomtm-android
 
-Public Android repository bootstrap for gomtm.
+Public Android app host repository for gomtm.
 
-## Repository goal
+## Current source of truth
 
-This repository exists to establish a minimal public Android repository baseline so future pull-request, GitHub Actions, and GitHub Release validation can be introduced cleanly before the legacy Android codebase is migrated.
+This repository is the long-term public Android app host for gomtm.
 
-This repository is intentionally starting with a minimal HelloWorld app to validate the public GitHub PR/CI/Release workflow before migrating the legacy Android project.
+The active architecture is:
 
-## Current status
+- `gomtm` remains the swarm kernel / Android AAR producer
+- `gomtm-android` is the public Android app host, CI, release, and APK distribution repo
+- swarm-first comes before worker orchestration, group control, or reward automation
+- legacy `apps/android/` in the monorepo is migration material only, not the future app host
 
-- The current app is a minimal HelloWorld Android app.
-- It is a repository bootstrap step that creates the minimum baseline for later workflow validation.
-- It does **not** mean the legacy `apps/android/` application has already been migrated here.
-- Migration planning and productionization are intentionally deferred to later phases.
+## What is implemented in this repo today
 
-## Collaboration model
+This repo now ships a **swarm-first host shell** instead of a generic HelloWorld placeholder.
 
-- All functional changes should go through pull requests.
-- Treat `main` as review-driven history, not a place for direct feature pushes.
-- Keep scope small and explicit so the repo can build the minimum baseline for future public PR/CI/release validation incrementally.
+That means:
 
-## Security boundaries
+- the app can build and release publicly even when no gomtm swarm AAR is present
+- the app contains a runtime probe screen that detects whether a gomtm bridge is actually bound
+- the app uses reflection-based probing so it does not fake a compile-time dependency on an AAR that upstream does not yet publish stably
+- GitHub Actions can optionally download a prebuilt gomtm swarm AAR into `app/libs/` before building
 
-Do **not** commit any of the following:
+## What this repo is responsible for
 
-- keystore files
-- `local.properties`
-- signing credentials
-- API tokens, secrets, or any other sensitive material
+- Android UI and product shell
+- public pull-request workflow
+- GitHub Actions CI and release automation
+- APK publication
+- optional consumption of a gomtm-produced swarm AAR
 
-If future signing or secret-based workflows are introduced, they must be handled through approved repository or release automation mechanisms rather than committed files.
+## What this repo is not responsible for
 
-## Verification
+- re-implementing libp2p or swarm logic in Kotlin
+- reviving or continuing development in monorepo `apps/android/`
+- pretending that a stable public gomtm AAR feed already exists
+- pulling reward-automation business logic into the Android host shell
 
-- GitHub Actions checks and release automation are part of the repository validation path for this bootstrap app.
-- Each merge to main is expected to create a new GitHub Release with a downloadable APK artifact.
-- Do **not** rely on local builds as the project acceptance path for this phase.
-- Do **not** run local Android build, test, emulator, or release steps as part of this repository bootstrap task.
+## Validation policy
 
-## Out of scope for this phase
+- use GitHub Actions as the build / validation path
+- use pull requests for functional changes
+- do not treat local Android builds as the acceptance path for this phase
 
-This phase does **not** yet implement:
+## Optional AAR consumption
 
-- legacy `apps/android/` migration
-- formal signing and production release setup
-- independent Go/AAR build-chain extraction
+If CI or a maintainer provides a gomtm swarm AAR, it should be placed into `app/libs/`.
 
-See [`docs/roadmap.md`](docs/roadmap.md) for future evaluation items.
+The host app then probes for known bridge classes at runtime and reports:
+
+- whether a bridge was detected
+- which bridge class was found
+- whether the lifecycle surface looks like `node`, `worker-legacy`, or `probe-only`
+- runtime state, peer id, bootstrap address, last error, and drained logs when exposed by the bridge
+
+If no AAR is present, the app still builds and clearly reports that it is running as a **public host shell only**.
+
+## Related docs
+
+- [Roadmap](docs/roadmap.md)
+- [Swarm runtime integration](docs/swarm-runtime-integration.md)

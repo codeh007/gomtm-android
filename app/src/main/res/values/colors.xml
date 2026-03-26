@@ -1,6 +1,9 @@
 <resources>
     <color name="brand_primary">#0F62FE</color>
     <color name="brand_secondary">#42BE65</color>
-    <color name="surface_background">#FFFFFFFF</color>
+    <color name="surface_background">#FFF8FBFF</color>
+    <color name="surface_panel">#FFFFFFFF</color>
     <color name="text_primary">#161616</color>
+    <color name="text_secondary">#4D5358</color>
+    <color name="text_muted">#6F6F6F</color>
 </resources>
