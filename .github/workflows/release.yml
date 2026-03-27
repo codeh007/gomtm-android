@@ -33,6 +33,8 @@ env:
   GOMTM_SWARM_AAR_VERSION: ${{ inputs.gomtm_swarm_aar_version || vars.GOMTM_SWARM_AAR_VERSION }}
   GOMTM_SWARM_AAR_SHA256: ${{ inputs.gomtm_swarm_aar_sha256 || vars.GOMTM_SWARM_AAR_SHA256 }}
   GOMTM_SWARM_AAR_NAME: gomtm-swarm-android.aar
+  GH_FALLBACK_TOKEN: ${{ github.token }}
+  GOMTM_RELEASE_TOKEN: ${{ secrets.GOMTM_GH_PAT }}
 
 jobs:
   release:
@@ -54,9 +56,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p app/libs dist
-          export GH_TOKEN="${{ github.token }}"
-          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_AAR_URL}" -o "app/libs/${GOMTM_SWARM_AAR_NAME}"
-          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_METADATA_URL}" -o "dist/gomtm-swarm-android.json"
+          auth_token="${GOMTM_RELEASE_TOKEN:-${GH_FALLBACK_TOKEN}}"
+          curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_AAR_URL}" -o "app/libs/${GOMTM_SWARM_AAR_NAME}"
+          curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_METADATA_URL}" -o "dist/gomtm-swarm-android.json"
           echo "${GOMTM_SWARM_AAR_SHA256}  app/libs/${GOMTM_SWARM_AAR_NAME}" | sha256sum --check --strict --status
           python - <<'PY'
           import json
