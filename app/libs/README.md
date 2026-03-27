@@ -1,8 +1,4 @@
-Place optional prebuilt gomtm swarm AAR artifacts here.
+GitHub Actions downloads the pinned `gomtm-swarm-android.aar` into this directory before Gradle runs.
 
-Expected direction:
-- `gomtm` produces the Android swarm AAR
-- `gomtm-android` consumes it from `app/libs/` during CI or release builds
-
-This directory is intentionally kept in-repo so GitHub Actions can download the AAR here before Gradle runs.
-Do not commit secrets or unrelated binaries.
+This repo does not treat local or ad-hoc AAR files as the public source of truth.
+The public truth is the published gomtm Android swarm AAR release asset plus its pinned SHA256.

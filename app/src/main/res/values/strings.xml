@@ -1,20 +1,23 @@
 <resources>
     <string name="app_name">gomtm-android</string>
-    <string name="swarm_shell_subtitle">Public Android app host for the gomtm swarm runtime.</string>
-    <string name="refresh_runtime_button">Refresh runtime probe</string>
-    <string name="swarm_runtime_section">Swarm runtime probe</string>
-    <string name="summary_label">Summary</string>
-    <string name="mode_label">Integration mode</string>
-    <string name="bridge_label">Detected bridge class</string>
-    <string name="lifecycle_label">Lifecycle surface</string>
+    <string name="swarm_runtime_subtitle">Real Android swarm node host for gomtm.</string>
+    <string name="bootstrap_input_label">Bootstrap address</string>
+    <string name="bootstrap_input_hint">/ip4/.../tcp/.../p2p/...</string>
+    <string name="node_name_input_label">Node name</string>
+    <string name="node_name_input_hint">android-my-device</string>
+    <string name="start_button">Start node</string>
+    <string name="stop_button">Stop node</string>
+    <string name="refresh_button">Refresh</string>
+    <string name="runtime_section">Swarm runtime</string>
+    <string name="bridge_label">Bridge class</string>
     <string name="state_label">Runtime state</string>
     <string name="peer_label">Peer ID</string>
-    <string name="bootstrap_label">Bootstrap address</string>
+    <string name="bootstrap_label">Connected bootstrap</string>
+    <string name="peers_label">Discovered peers</string>
     <string name="error_label">Last error</string>
     <string name="logs_label">Recent logs</string>
-    <string name="status_summary_bound">gomtm swarm bridge detected. This build can interrogate the bound runtime.</string>
-    <string name="status_summary_unbound">No gomtm swarm AAR is currently bound. This APK is acting as the public host shell only.</string>
     <string name="value_not_available">Not available</string>
     <string name="value_none">None</string>
     <string name="value_no_logs_yet">No runtime logs yet.</string>
+    <string name="value_no_peers_yet">No peers discovered in the current session yet.</string>
 </resources>

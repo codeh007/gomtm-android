@@ -1,25 +1,23 @@
 package com.gomtm.android.swarm
 
 data class SwarmStatus(
-    val integrationMode: String,
-    val aarDetected: Boolean,
-    val bridgeClassName: String?,
-    val lifecycleSurface: String,
+    val bridgeClassName: String,
     val state: String,
-    val peerId: String?,
-    val bootstrapAddress: String?,
-    val lastError: String?
+    val peerId: String,
+    val bootstrapAddress: String,
+    val lastError: String,
+    val discoveredPeers: List<DiscoveredPeer>,
+    val rawDiscoveredPeers: String,
 ) {
     companion object {
-        fun missing(): SwarmStatus = SwarmStatus(
-            integrationMode = "host-shell",
-            aarDetected = false,
-            bridgeClassName = null,
-            lifecycleSurface = "unbound",
-            state = "AAR not bound",
-            peerId = null,
-            bootstrapAddress = null,
-            lastError = null
+        fun missing(message: String): SwarmStatus = SwarmStatus(
+            bridgeClassName = "",
+            state = "Error",
+            peerId = "",
+            bootstrapAddress = "",
+            lastError = message,
+            discoveredPeers = emptyList(),
+            rawDiscoveredPeers = "",
         )
     }
 }

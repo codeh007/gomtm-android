@@ -1,63 +1,89 @@
 package com.gomtm.android.swarm
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SwarmRuntimeTest {
     @Test
-    fun exposesUnboundHostShellWhenBridgeIsMissing() {
+    fun exposesMissingBridgeAsErrorState() {
         val runtime = SwarmRuntime(
-            bridgeClassNames = listOf("does.not.exist.Bridge"),
-            classLoader = javaClass.classLoader ?: ClassLoader.getSystemClassLoader()
+            bridgeClassName = "does.not.exist.Bridge",
+            configClassName = FakeConfig::class.java.name,
+            classLoader = javaClass.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
         val status = runtime.probe()
 
-        assertEquals("host-shell", status.integrationMode)
-        assertFalse(status.aarDetected)
-        assertEquals("AAR not bound", status.state)
+        assertEquals("Error", status.state)
+        assertTrue(status.lastError.contains("gomtm swarm bridge unavailable"))
     }
 
     @Test
-    fun detectsLegacyWorkerLifecycleSurface() {
+    fun parsesCurrentNodeLifecycleSurface() {
         val runtime = SwarmRuntime(
-            bridgeClassNames = listOf(FakeLegacyBridge::class.java.name),
-            classLoader = FakeLegacyBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader()
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
         val status = runtime.probe()
 
-        assertTrue(status.aarDetected)
-        assertEquals("worker-legacy", status.lifecycleSurface)
-        assertEquals("Running", status.state)
+        assertEquals("Registered", status.state)
         assertEquals("peer-123", status.peerId)
         assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", status.bootstrapAddress)
+        assertEquals(1, status.discoveredPeers.size)
+        assertEquals("peer-b", status.discoveredPeers.single().peerId)
     }
 
-    class FakeLegacyBridge {
+    @Test
+    fun parsesDiscoveredPeersSnapshot() {
+        val json =
+            """
+            {"schema_version":"v1","generated_at":"2026-03-27T10:00:00Z","peers":[{"peer_id":"peer-b","name":"android-b","state":"registered","discovered_in_current_session":true,"is_bootstrap":false,"last_seen_at":"2026-03-27T10:00:00Z"}]}
+            """.trimIndent()
+
+        val peers = DiscoveredPeer.parseSnapshot(json)
+
+        assertEquals(1, peers.size)
+        assertEquals("peer-b", peers.single().peerId)
+        assertEquals("android-b", peers.single().name)
+    }
+
+    class FakeConfig {
+        fun setBootstrapAddr(@Suppress("UNUSED_PARAMETER") value: String) = Unit
+        fun setNodeName(@Suppress("UNUSED_PARAMETER") value: String) = Unit
+        fun setAutoReconnect(@Suppress("UNUSED_PARAMETER") value: Boolean) = Unit
+    }
+
+    class FakeNodeBridge {
         companion object {
             @JvmStatic
-            fun StartWorker(baseDir: String, nodeName: String) = Unit
+            fun startNode(@Suppress("UNUSED_PARAMETER") baseDir: String, @Suppress("UNUSED_PARAMETER") config: FakeConfig) = Unit
 
             @JvmStatic
-            fun StopWorker() = Unit
+            fun stopNode() = Unit
 
             @JvmStatic
-            fun GetState(): String = "Running"
+            fun getState(): String = "Registered"
 
             @JvmStatic
-            fun GetPeerID(): String = "peer-123"
+            fun getPeerID(): String = "peer-123"
 
             @JvmStatic
-            fun GetBootstrapAddr(): String = "/ip4/127.0.0.1/tcp/4101/p2p/test"
+            fun getBootstrapAddr(): String = "/ip4/127.0.0.1/tcp/4101/p2p/test"
 
             @JvmStatic
-            fun GetLastError(): String = ""
+            fun getLastError(): String = ""
 
             @JvmStatic
-            fun DrainLogs(): String = "bootstrap ok"
+            fun getDiscoveredPeers(): String =
+                """
+                {"schema_version":"v1","generated_at":"2026-03-27T10:00:00Z","peers":[{"peer_id":"peer-b","name":"android-b","state":"registered","discovered_in_current_session":true,"is_bootstrap":false,"last_seen_at":"2026-03-27T10:00:00Z"}]}
+                """.trimIndent()
+
+            @JvmStatic
+            fun drainLogs(): String = "bootstrap ok"
         }
     }
 }

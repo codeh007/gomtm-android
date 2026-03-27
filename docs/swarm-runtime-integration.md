@@ -1,44 +1,63 @@
 # Swarm runtime integration
 
-`gomtm-android` is being prepared to consume a gomtm-produced Android swarm AAR without pretending that the upstream publication contract is already finished.
+`gomtm-android` consumes a **published, pinned** gomtm Android swarm AAR.
 
 ## Current approach
 
-The app uses a **reflection-based integration seam**:
+The public Android app host is no longer treated as a generic host shell.
 
-- Gradle will include any optional `*.aar` dropped into `app/libs/`
-- the Kotlin host shell does not compile against hard AAR symbols
-- `SwarmRuntime` probes for known bridge class names at runtime
-- if no bridge is present, the app still ships and clearly reports that it is running as a host shell only
+Current contract:
 
-## Why this is the right temporary shape
+- GitHub Actions downloads a specific `gomtm-swarm-android.aar`
+- GitHub Actions verifies its SHA256 before Gradle runs
+- the app binds to the current gomtm node runtime surface
+- the UI shows real runtime state, peer id, bootstrap address, logs, and discovered peers
+- the APK release records which gomtm AAR version / URL / SHA256 it consumed
 
-Right now, the public upstream `gomtm` releases do not expose a stable downloadable swarm AAR asset that this repo can treat as a guaranteed dependency.
+## Upstream gomtm requirements
 
-So the host repo should optimize for honesty:
+`gomtm` must publish these release assets:
 
-1. keep the public Android repo buildable
-2. avoid inventing a second swarm implementation in Kotlin
-3. avoid hard-wiring to a fake or private-only artifact path
-4. preserve a narrow seam that a real gomtm AAR can plug into later
+- `gomtm-swarm-android.aar`
+- `gomtm-swarm-android.json`
 
-## What upstream gomtm still needs to provide
+The metadata file must at least expose:
 
-Before this repo can become a real runtime consumer, upstream gomtm work still needs to settle:
+- gomtm version
+- gomtm commit
+- gomtm source ref
+- AAR sha256
+- upstream sing-box repo/ref/commit
+- published timestamp
 
-- artifact naming and versioning
-- bridge API stability
-- publication path for downloadable AAR artifacts
-- compatibility rules between host APK versions and runtime AAR versions
+## Downstream rules in this repo
 
-## Current host shell contract
+This repo must not:
 
-Today the public app shell can safely expose:
+- consume `latest` implicitly
+- skip checksum validation
+- release an APK without recording the gomtm AAR provenance it was built from
 
-- whether a gomtm swarm bridge was detected
-- which bridge class was found
-- whether the lifecycle surface looks like `node`, `worker-legacy`, or `probe-only`
-- current runtime state, peer id, bootstrap address, and last error if the bridge exports those methods
-- drained runtime logs when available
+This repo must:
 
-This gives the repo a truthful and reviewable intermediate state instead of a fake finished integration.
+1. pin `gomtm_swarm_aar_url`
+2. pin `gomtm_swarm_aar_version`
+3. pin `gomtm_swarm_aar_sha256`
+4. download the AAR into `app/libs/`
+5. validate the checksum
+6. run Gradle only after the AAR contract is satisfied
+
+## UI contract
+
+The public app UI must expose:
+
+- start node
+- stop node
+- runtime state
+- peer id
+- bootstrap address
+- discovered peers list
+- last error
+- recent logs
+
+No part of the UI should pretend that a node is running when the bound runtime is absent or misconfigured.
