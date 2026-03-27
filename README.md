@@ -1,6 +1,6 @@
 # gomtm-android
 
-Public Android app host repository for gomtm.
+Public Android swarm node app for gomtm.
 
 ## Current source of truth
 
@@ -9,35 +9,25 @@ This repository is the long-term public Android app host for gomtm.
 The active architecture is:
 
 - `gomtm` remains the swarm kernel / Android AAR producer
-- `gomtm-android` is the public Android app host, CI, release, and APK distribution repo
+- `gomtm-android` is the public Android node app host, CI, release, and APK distribution repo
 - swarm-first comes before worker orchestration, group control, or reward automation
-- legacy `apps/android/` in the monorepo is migration material only, not the future app host
-
-## What is implemented in this repo today
-
-This repo now ships a **swarm-first host shell** instead of a generic HelloWorld placeholder.
-
-That means:
-
-- the app can build and release publicly even when no gomtm swarm AAR is present
-- the app contains a runtime probe screen that detects whether a gomtm bridge is actually bound
-- the app uses reflection-based probing so it does not fake a compile-time dependency on an AAR that upstream does not yet publish stably
-- GitHub Actions can optionally download a prebuilt gomtm swarm AAR into `app/libs/` before building
+- legacy monorepo `apps/android/` is migration material only, not the future app host
 
 ## What this repo is responsible for
 
 - Android UI and product shell
-- public pull-request workflow
+- starting and stopping a real gomtm swarm node runtime
+- showing runtime state, peer id, bootstrap address, logs, and discovered peers
 - GitHub Actions CI and release automation
 - APK publication
-- optional consumption of a gomtm-produced swarm AAR
+- consuming a **published, pinned** `gomtm-swarm-android.aar`
 
 ## What this repo is not responsible for
 
 - re-implementing libp2p or swarm logic in Kotlin
 - reviving or continuing development in monorepo `apps/android/`
-- pretending that a stable public gomtm AAR feed already exists
-- pulling reward-automation business logic into the Android host shell
+- consuming an unpinned `latest` AAR
+- pulling reward-automation business logic into the Android node host
 
 ## Validation policy
 
@@ -45,18 +35,20 @@ That means:
 - use pull requests for functional changes
 - do not treat local Android builds as the acceptance path for this phase
 
-## Optional AAR consumption
+## Runtime contract
 
-If CI or a maintainer provides a gomtm swarm AAR, it should be placed into `app/libs/`.
+The app consumes a published `gomtm-swarm-android.aar` and drives the current node runtime surface:
 
-The host app then probes for known bridge classes at runtime and reports:
+- `startNode(baseDir, config)`
+- `stopNode()`
+- `getState()`
+- `getPeerID()`
+- `getBootstrapAddr()`
+- `getLastError()`
+- `getDiscoveredPeers()`
+- `drainLogs()`
 
-- whether a bridge was detected
-- which bridge class was found
-- whether the lifecycle surface looks like `node`, `worker-legacy`, or `probe-only`
-- runtime state, peer id, bootstrap address, last error, and drained logs when exposed by the bridge
-
-If no AAR is present, the app still builds and clearly reports that it is running as a **public host shell only**.
+The UI is expected to show real runtime data, not a host-shell placeholder.
 
 ## Related docs
 

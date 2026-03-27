@@ -1,64 +1,102 @@
 package com.gomtm.android.swarm
 
-class SwarmRuntime(
-    private val bridgeClassNames: List<String> = DEFAULT_BRIDGE_CLASS_NAMES,
-    private val classLoader: ClassLoader = SwarmRuntime::class.java.classLoader
-        ?: ClassLoader.getSystemClassLoader()
-) {
-    fun probe(): SwarmStatus {
-        val bridge = resolveBridgeClass() ?: return SwarmStatus.missing()
+import android.content.Context
+import java.io.File
+import java.lang.reflect.InvocationTargetException
 
-        return SwarmStatus(
-            integrationMode = "aar-bound",
-            aarDetected = true,
-            bridgeClassName = bridge.name,
-            lifecycleSurface = detectLifecycleSurface(bridge),
-            state = callString(bridge, "GetState") ?: "Unknown",
-            peerId = callString(bridge, "GetPeerID"),
-            bootstrapAddress = callString(bridge, "GetBootstrapAddr"),
-            lastError = callString(bridge, "GetLastError")
+class SwarmRuntime(
+    private val bridgeClassName: String = DEFAULT_BRIDGE_CLASS_NAME,
+    private val configClassName: String = DEFAULT_CONFIG_CLASS_NAME,
+    private val classLoader: ClassLoader = SwarmRuntime::class.java.classLoader
+        ?: ClassLoader.getSystemClassLoader(),
+) {
+    fun start(context: Context, config: SwarmNodeConfig) {
+        val bridge = resolveBridgeClass()
+        val configClass = Class.forName(configClassName, true, classLoader)
+        val configInstance = configClass.getDeclaredConstructor().newInstance()
+        setStringProperty(configClass, configInstance, "setBootstrapAddr", config.bootstrapAddress)
+        setStringProperty(configClass, configInstance, "setNodeName", config.nodeName)
+        setBooleanProperty(configClass, configInstance, "setAutoReconnect", config.autoReconnect)
+        invokeStatic(
+            bridge = bridge,
+            methodName = "startNode",
+            args = arrayOf(runtimeBaseDir(context), configInstance),
+            parameterTypes = arrayOf(String::class.java, configClass),
         )
     }
 
-    fun drainLogs(): String {
-        val bridge = resolveBridgeClass() ?: return ""
-        return callString(bridge, "DrainLogs")?.trim().orEmpty()
+    fun stop() {
+        invokeStatic(
+            bridge = resolveBridgeClass(),
+            methodName = "stopNode",
+            args = emptyArray(),
+            parameterTypes = emptyArray(),
+        )
     }
 
-    internal fun resolveBridgeClass(): Class<*>? {
-        for (candidate in bridgeClassNames) {
-            try {
-                return Class.forName(candidate, false, classLoader)
-            } catch (_: ClassNotFoundException) {
-                continue
-            }
+    fun drainLogs(): String = invokeString("drainLogs")
+
+    fun probe(): SwarmStatus {
+        val bridge = try {
+            resolveBridgeClass()
+        } catch (error: ReflectiveOperationException) {
+            return SwarmStatus.missing("gomtm swarm bridge unavailable: ${error.message ?: error.javaClass.simpleName}")
         }
-        return null
+
+        val rawDiscoveredPeers = invokeString("getDiscoveredPeers")
+        return SwarmStatus(
+            bridgeClassName = bridge.name,
+            state = invokeString("getState").ifBlank { "Unknown" },
+            peerId = invokeString("getPeerID"),
+            bootstrapAddress = invokeString("getBootstrapAddr"),
+            lastError = invokeString("getLastError"),
+            discoveredPeers = DiscoveredPeer.parseSnapshot(rawDiscoveredPeers),
+            rawDiscoveredPeers = rawDiscoveredPeers,
+        )
     }
 
-    private fun detectLifecycleSurface(bridge: Class<*>): String {
-        val methodNames = bridge.methods.map { it.name }.toSet()
-        return when {
-            methodNames.containsAll(setOf("StartNode", "StopNode")) -> "node"
-            methodNames.containsAll(setOf("StartWorker", "StopWorker")) -> "worker-legacy"
-            else -> "probe-only"
-        }
+    internal fun resolveBridgeClass(): Class<*> = Class.forName(bridgeClassName, true, classLoader)
+
+    private fun runtimeBaseDir(context: Context): String {
+        val baseDir = File(context.filesDir, "gomtm")
+        baseDir.mkdirs()
+        return baseDir.absolutePath
     }
 
-    private fun callString(target: Class<*>, methodName: String): String? {
+    private fun invokeString(methodName: String): String {
         return try {
-            val method = target.getMethod(methodName)
-            (method.invoke(null) as? String)?.takeIf { it.isNotBlank() }
+            (invokeStatic(resolveBridgeClass(), methodName, emptyArray(), emptyArray()) as? String).orEmpty()
         } catch (_: ReflectiveOperationException) {
-            null
+            ""
         }
+    }
+
+    private fun invokeStatic(
+        bridge: Class<*>,
+        methodName: String,
+        args: Array<out Any?>,
+        parameterTypes: Array<out Class<*>>,
+    ): Any? {
+        try {
+            val method = bridge.getMethod(methodName, *parameterTypes)
+            return method.invoke(null, *args)
+        } catch (error: InvocationTargetException) {
+            val cause = error.targetException ?: error.cause ?: error
+            throw IllegalStateException(cause.message ?: cause.javaClass.simpleName, cause)
+        }
+    }
+
+    private fun setStringProperty(targetClass: Class<*>, target: Any, methodName: String, value: String) {
+        targetClass.getMethod(methodName, String::class.java).invoke(target, value)
+    }
+
+    private fun setBooleanProperty(targetClass: Class<*>, target: Any, methodName: String, value: Boolean) {
+        val booleanType = Boolean::class.javaPrimitiveType ?: Boolean::class.javaObjectType
+        targetClass.getMethod(methodName, booleanType).invoke(target, value)
     }
 
     companion object {
-        internal val DEFAULT_BRIDGE_CLASS_NAMES = listOf(
-            "io.nekohasekai.p2pandroid.P2pandroid",
-            "com.gomtm.swarm.GomtmSwarm",
-            "com.gomtm.android.swarm.GomtmSwarm"
-        )
+        internal const val DEFAULT_BRIDGE_CLASS_NAME = "io.nekohasekai.p2pandroid.P2pandroid"
+        internal const val DEFAULT_CONFIG_CLASS_NAME = "io.nekohasekai.p2pandroid.Config"
     }
 }

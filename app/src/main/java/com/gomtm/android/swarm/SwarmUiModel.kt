@@ -1,0 +1,19 @@
+package com.gomtm.android.swarm
+
+data class SwarmUiModel(
+    val connectedBootstrap: String,
+    val errorText: String,
+) {
+    companion object {
+        const val VALUE_NOT_AVAILABLE = "Not available"
+        const val VALUE_NONE = "None"
+
+        fun from(status: SwarmStatus, actionError: String?): SwarmUiModel {
+            return SwarmUiModel(
+                connectedBootstrap = status.bootstrapAddress.ifBlank { VALUE_NOT_AVAILABLE },
+                errorText = actionError?.takeIf { it.isNotBlank() }
+                    ?: status.lastError.ifBlank { VALUE_NONE },
+            )
+        }
+    }
+}

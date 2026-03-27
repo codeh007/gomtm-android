@@ -5,7 +5,19 @@ on:
   workflow_dispatch:
     inputs:
       gomtm_swarm_aar_url:
-        description: Optional direct download URL for a gomtm swarm AAR
+        description: GitHub API asset URL for gomtm-swarm-android.aar
+        required: false
+        type: string
+      gomtm_swarm_metadata_url:
+        description: GitHub API asset URL for gomtm-swarm-android.json
+        required: false
+        type: string
+      gomtm_swarm_aar_version:
+        description: Version string for the pinned gomtm swarm AAR
+        required: false
+        type: string
+      gomtm_swarm_aar_sha256:
+        description: SHA256 for the pinned gomtm swarm AAR
         required: false
         type: string
 
@@ -14,7 +26,12 @@ permissions:
 
 env:
   GOMTM_SWARM_AAR_URL: ${{ inputs.gomtm_swarm_aar_url || vars.GOMTM_SWARM_AAR_URL }}
-  GOMTM_SWARM_AAR_NAME: ${{ vars.GOMTM_SWARM_AAR_NAME || 'gomtm-swarm-android.aar' }}
+  GOMTM_SWARM_METADATA_URL: ${{ inputs.gomtm_swarm_metadata_url || vars.GOMTM_SWARM_METADATA_URL }}
+  GOMTM_SWARM_AAR_VERSION: ${{ inputs.gomtm_swarm_aar_version || vars.GOMTM_SWARM_AAR_VERSION }}
+  GOMTM_SWARM_AAR_SHA256: ${{ inputs.gomtm_swarm_aar_sha256 || vars.GOMTM_SWARM_AAR_SHA256 }}
+  GOMTM_SWARM_AAR_NAME: gomtm-swarm-android.aar
+  GH_FALLBACK_TOKEN: ${{ github.token }}
+  GOMTM_RELEASE_TOKEN: ${{ secrets.GOMTM_GH_PAT }}
 
 jobs:
   android:
@@ -24,19 +41,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare optional gomtm swarm AAR
+      - name: Validate gomtm swarm AAR contract
         shell: bash
         run: |
-          mkdir -p app/libs
-          if [ -z "${GOMTM_SWARM_AAR_URL}" ]; then
-            echo "No gomtm swarm AAR configured; building the public host shell without a bound runtime."
-            exit 0
-          fi
+          test -n "${GOMTM_SWARM_AAR_URL}" || { echo "Missing GOMTM_SWARM_AAR_URL"; exit 1; }
+          test -n "${GOMTM_SWARM_METADATA_URL}" || { echo "Missing GOMTM_SWARM_METADATA_URL"; exit 1; }
+          test -n "${GOMTM_SWARM_AAR_VERSION}" || { echo "Missing GOMTM_SWARM_AAR_VERSION"; exit 1; }
+          test -n "${GOMTM_SWARM_AAR_SHA256}" || { echo "Missing GOMTM_SWARM_AAR_SHA256"; exit 1; }
 
-          target="app/libs/${GOMTM_SWARM_AAR_NAME:-gomtm-swarm-android.aar}"
-          echo "Downloading optional gomtm swarm AAR to ${target}"
-          curl -fL --retry 3 --retry-all-errors "${GOMTM_SWARM_AAR_URL}" -o "${target}"
-          ls -lh app/libs
+      - name: Download pinned gomtm swarm AAR and metadata
+        shell: bash
+        run: |
+          mkdir -p app/libs dist
+          auth_token="${GOMTM_RELEASE_TOKEN:-${GH_FALLBACK_TOKEN}}"
+          curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_AAR_URL}" -o "app/libs/${GOMTM_SWARM_AAR_NAME}"
+          curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_METADATA_URL}" -o "dist/gomtm-swarm-android.json"
+          echo "${GOMTM_SWARM_AAR_SHA256}  app/libs/${GOMTM_SWARM_AAR_NAME}" | sha256sum --check --strict --status
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          meta = json.loads(Path('dist/gomtm-swarm-android.json').read_text())
+          expected_version = os.environ['GOMTM_SWARM_AAR_VERSION']
+          expected_sha = os.environ['GOMTM_SWARM_AAR_SHA256']
+          if meta.get('artifact') != 'gomtm-swarm-android.aar':
+              raise SystemExit(f"unexpected artifact: {meta.get('artifact')}")
+          if meta.get('version') != expected_version:
+              raise SystemExit(f"metadata version mismatch: {meta.get('version')} != {expected_version}")
+          if meta.get('sha256') != expected_sha:
+              raise SystemExit(f"metadata sha256 mismatch: {meta.get('sha256')} != {expected_sha}")
+          PY
+          ls -lh app/libs dist
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
