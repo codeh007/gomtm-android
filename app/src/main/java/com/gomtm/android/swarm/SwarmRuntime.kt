@@ -28,20 +28,21 @@ class SwarmRuntime(
             return
         }
 
-        val booleanType = Boolean::class.javaPrimitiveType ?: Boolean::class.javaObjectType
-        if (hasMethod(
-                bridge,
-                listOf("StartNodeWithOptions", "startNodeWithOptions"),
-                arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
-            )
-        ) {
-            invokeStaticByNames(
-                bridge = bridge,
-                methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
-                args = arrayOf(baseDir, config.bootstrapAddress, config.nodeName, config.autoReconnect),
-                parameterTypes = arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
-            )
-            return
+        for (booleanType in booleanParameterTypes()) {
+            if (hasMethod(
+                    bridge,
+                    listOf("StartNodeWithOptions", "startNodeWithOptions"),
+                    arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
+                )
+            ) {
+                invokeStaticByNames(
+                    bridge = bridge,
+                    methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
+                    args = arrayOf(baseDir, config.bootstrapAddress, config.nodeName, config.autoReconnect),
+                    parameterTypes = arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
+                )
+                return
+            }
         }
 
         throw IllegalStateException("bridge method not found: StartNode/StartNodeWithOptions")
@@ -160,18 +161,25 @@ class SwarmRuntime(
     }
 
     private fun setBooleanProperty(targetClass: Class<*>, target: Any, methodNames: List<String>, value: Boolean) {
-        val booleanType = Boolean::class.javaPrimitiveType ?: Boolean::class.javaObjectType
         var lastMissing: NoSuchMethodException? = null
-        for (name in methodNames) {
-            try {
-                targetClass.getMethod(name, booleanType).invoke(target, value)
-                return
-            } catch (error: NoSuchMethodException) {
-                lastMissing = error
-                continue
+        for (booleanType in booleanParameterTypes()) {
+            for (name in methodNames) {
+                try {
+                    targetClass.getMethod(name, booleanType).invoke(target, value)
+                    return
+                } catch (error: NoSuchMethodException) {
+                    lastMissing = error
+                    continue
+                }
             }
         }
         throw IllegalStateException("config setter not found: ${methodNames.joinToString()}", lastMissing)
+    }
+
+    private fun booleanParameterTypes(): List<Class<*>> {
+        val primitive = java.lang.Boolean.TYPE
+        val boxed = java.lang.Boolean::class.java
+        return if (primitive == boxed) listOf(primitive) else listOf(primitive, boxed)
     }
 
     companion object {
