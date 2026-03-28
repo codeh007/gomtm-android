@@ -1,6 +1,8 @@
 package com.gomtm.android
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -12,7 +14,14 @@ import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = SwarmRuntime()
+    private val refreshHandler = Handler(Looper.getMainLooper())
     private var actionError: String? = null
+    private val autoRefreshRunnable = object : Runnable {
+        override fun run() {
+            render()
+            refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,7 +46,19 @@ class MainActivity : AppCompatActivity() {
             render()
         }
 
+        maybeAutoStartFromIntent()
         render()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshHandler.removeCallbacks(autoRefreshRunnable)
+        refreshHandler.post(autoRefreshRunnable)
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(autoRefreshRunnable)
+        super.onPause()
     }
 
     private fun runAction(action: () -> Unit) {
@@ -58,6 +79,19 @@ class MainActivity : AppCompatActivity() {
             nodeName = nodeName,
             autoReconnect = true,
         )
+    }
+
+    private fun maybeAutoStartFromIntent() {
+        if (!intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
+            return
+        }
+        if (swarmRuntime.probe().state != "Idle") {
+            return
+        }
+        saveInputs()
+        runAction {
+            swarmRuntime.start(this, currentConfig())
+        }
     }
 
     private fun render() {
@@ -125,5 +159,7 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS_NAME = "gomtm-android"
         private const val KEY_BOOTSTRAP = "bootstrap"
         private const val KEY_NODE_NAME = "node_name"
+        private const val EXTRA_AUTO_START = "auto_start"
+        private const val REFRESH_INTERVAL_MS = 3000L
     }
 }
