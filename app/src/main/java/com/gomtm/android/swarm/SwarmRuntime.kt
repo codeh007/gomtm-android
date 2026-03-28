@@ -14,27 +14,27 @@ class SwarmRuntime(
         val bridge = resolveBridgeClass()
         val configClass = Class.forName(configClassName, true, classLoader)
         val configInstance = configClass.getDeclaredConstructor().newInstance()
-        setStringProperty(configClass, configInstance, "setBootstrapAddr", config.bootstrapAddress)
-        setStringProperty(configClass, configInstance, "setNodeName", config.nodeName)
-        setBooleanProperty(configClass, configInstance, "setAutoReconnect", config.autoReconnect)
-        invokeStatic(
+        setStringProperty(configClass, configInstance, listOf("SetBootstrapAddr", "setBootstrapAddr"), config.bootstrapAddress)
+        setStringProperty(configClass, configInstance, listOf("SetNodeName", "setNodeName"), config.nodeName)
+        setBooleanProperty(configClass, configInstance, listOf("SetAutoReconnect", "setAutoReconnect"), config.autoReconnect)
+        invokeStaticByNames(
             bridge = bridge,
-            methodName = "startNode",
+            methodNames = listOf("StartNode", "startNode"),
             args = arrayOf(runtimeBaseDir(context), configInstance),
             parameterTypes = arrayOf(String::class.java, configClass),
         )
     }
 
     fun stop() {
-        invokeStatic(
+        invokeStaticByNames(
             bridge = resolveBridgeClass(),
-            methodName = "stopNode",
+            methodNames = listOf("StopNode", "stopNode"),
             args = emptyArray(),
             parameterTypes = emptyArray(),
         )
     }
 
-    fun drainLogs(): String = invokeString("drainLogs")
+    fun drainLogs(): String = invokeStringByNames("DrainLogs", "drainLogs")
 
     fun probe(): SwarmStatus {
         val bridge = try {
@@ -43,13 +43,13 @@ class SwarmRuntime(
             return SwarmStatus.missing("gomtm swarm bridge unavailable: ${error.message ?: error.javaClass.simpleName}")
         }
 
-        val rawDiscoveredPeers = invokeString("getDiscoveredPeers")
+        val rawDiscoveredPeers = invokeStringByNames(bridge, "GetDiscoveredPeers", "getDiscoveredPeers")
         return SwarmStatus(
             bridgeClassName = bridge.name,
-            state = invokeString("getState").ifBlank { "Unknown" },
-            peerId = invokeString("getPeerID"),
-            bootstrapAddress = invokeString("getBootstrapAddr"),
-            lastError = invokeString("getLastError"),
+            state = invokeStringByNames(bridge, "GetState", "getState").ifBlank { "Unknown" },
+            peerId = invokeStringByNames(bridge, "GetPeerID", "GetPeerId", "getPeerID", "getPeerId"),
+            bootstrapAddress = invokeStringByNames(bridge, "GetBootstrapAddr", "GetBootstrapAddress", "getBootstrapAddr", "getBootstrapAddress"),
+            lastError = invokeStringByNames(bridge, "GetLastError", "getLastError"),
             discoveredPeers = DiscoveredPeer.parseSnapshot(rawDiscoveredPeers),
             rawDiscoveredPeers = rawDiscoveredPeers,
         )
@@ -63,36 +63,77 @@ class SwarmRuntime(
         return baseDir.absolutePath
     }
 
-    private fun invokeString(methodName: String): String {
+    private fun invokeStringByNames(vararg methodNames: String): String {
         return try {
-            (invokeStatic(resolveBridgeClass(), methodName, emptyArray(), emptyArray()) as? String).orEmpty()
+            invokeStringByNames(resolveBridgeClass(), *methodNames)
         } catch (_: ReflectiveOperationException) {
             ""
         }
     }
 
-    private fun invokeStatic(
+    private fun invokeStringByNames(bridge: Class<*>, vararg methodNames: String): String {
+        for (name in methodNames) {
+            try {
+                val method = bridge.getMethod(name)
+                return (method.invoke(null) as? String).orEmpty()
+            } catch (_: NoSuchMethodException) {
+                continue
+            } catch (_: ReflectiveOperationException) {
+                return ""
+            }
+        }
+        return ""
+    }
+
+    private fun invokeStaticByNames(
         bridge: Class<*>,
-        methodName: String,
+        methodNames: List<String>,
         args: Array<out Any?>,
         parameterTypes: Array<out Class<*>>,
     ): Any? {
-        try {
-            val method = bridge.getMethod(methodName, *parameterTypes)
-            return method.invoke(null, *args)
-        } catch (error: InvocationTargetException) {
-            val cause = error.targetException ?: error.cause ?: error
-            throw IllegalStateException(cause.message ?: cause.javaClass.simpleName, cause)
+        var lastMissing: NoSuchMethodException? = null
+        for (name in methodNames) {
+            try {
+                val method = bridge.getMethod(name, *parameterTypes)
+                return method.invoke(null, *args)
+            } catch (error: NoSuchMethodException) {
+                lastMissing = error
+                continue
+            } catch (error: InvocationTargetException) {
+                val cause = error.targetException ?: error.cause ?: error
+                throw IllegalStateException(cause.message ?: cause.javaClass.simpleName, cause)
+            }
         }
+        throw IllegalStateException("bridge method not found: ${methodNames.joinToString()}", lastMissing)
     }
 
-    private fun setStringProperty(targetClass: Class<*>, target: Any, methodName: String, value: String) {
-        targetClass.getMethod(methodName, String::class.java).invoke(target, value)
+    private fun setStringProperty(targetClass: Class<*>, target: Any, methodNames: List<String>, value: String) {
+        var lastMissing: NoSuchMethodException? = null
+        for (name in methodNames) {
+            try {
+                targetClass.getMethod(name, String::class.java).invoke(target, value)
+                return
+            } catch (error: NoSuchMethodException) {
+                lastMissing = error
+                continue
+            }
+        }
+        throw IllegalStateException("config setter not found: ${methodNames.joinToString()}", lastMissing)
     }
 
-    private fun setBooleanProperty(targetClass: Class<*>, target: Any, methodName: String, value: Boolean) {
+    private fun setBooleanProperty(targetClass: Class<*>, target: Any, methodNames: List<String>, value: Boolean) {
         val booleanType = Boolean::class.javaPrimitiveType ?: Boolean::class.javaObjectType
-        targetClass.getMethod(methodName, booleanType).invoke(target, value)
+        var lastMissing: NoSuchMethodException? = null
+        for (name in methodNames) {
+            try {
+                targetClass.getMethod(name, booleanType).invoke(target, value)
+                return
+            } catch (error: NoSuchMethodException) {
+                lastMissing = error
+                continue
+            }
+        }
+        throw IllegalStateException("config setter not found: ${methodNames.joinToString()}", lastMissing)
     }
 
     companion object {
