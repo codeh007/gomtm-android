@@ -9,7 +9,7 @@ data class SwarmNodeConfig(
     val autoReconnect: Boolean = true,
 ) {
     companion object {
-        const val DEFAULT_BOOTSTRAP = "/ip4/103.73.161.132/tcp/4101/p2p/12D3KooWMJXTpws7wFvNskw8hWxRNtnsK8ctVHskUBeZdZzJ895n"
+        const val DEFAULT_BOOTSTRAP = "/ip4/156.225.19.101/tcp/4101/p2p/12D3KooWEToGF72k9jypWMPFkwiofuedYrEGZKHNPfKEP2Cg68Cj"
 
         fun defaultNodeName(deviceName: String = Build.MODEL ?: "Android"): String {
             val normalized =
