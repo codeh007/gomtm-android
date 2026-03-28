@@ -85,9 +85,6 @@ class MainActivity : AppCompatActivity() {
         if (!intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
             return
         }
-        if (swarmRuntime.probe().state != "Idle") {
-            return
-        }
         saveInputs()
         runAction {
             swarmRuntime.start(this, currentConfig())
