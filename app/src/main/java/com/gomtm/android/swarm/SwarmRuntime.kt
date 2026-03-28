@@ -17,12 +17,34 @@ class SwarmRuntime(
         setStringProperty(configClass, configInstance, listOf("SetBootstrapAddr", "setBootstrapAddr"), config.bootstrapAddress)
         setStringProperty(configClass, configInstance, listOf("SetNodeName", "setNodeName"), config.nodeName)
         setBooleanProperty(configClass, configInstance, listOf("SetAutoReconnect", "setAutoReconnect"), config.autoReconnect)
-        invokeStaticByNames(
-            bridge = bridge,
-            methodNames = listOf("StartNode", "startNode"),
-            args = arrayOf(runtimeBaseDir(context), configInstance),
-            parameterTypes = arrayOf(String::class.java, configClass),
-        )
+        val baseDir = runtimeBaseDir(context)
+        if (hasMethod(bridge, listOf("StartNode", "startNode"), arrayOf(String::class.java, configClass))) {
+            invokeStaticByNames(
+                bridge = bridge,
+                methodNames = listOf("StartNode", "startNode"),
+                args = arrayOf(baseDir, configInstance),
+                parameterTypes = arrayOf(String::class.java, configClass),
+            )
+            return
+        }
+
+        val booleanType = Boolean::class.javaPrimitiveType ?: Boolean::class.javaObjectType
+        if (hasMethod(
+                bridge,
+                listOf("StartNodeWithOptions", "startNodeWithOptions"),
+                arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
+            )
+        ) {
+            invokeStaticByNames(
+                bridge = bridge,
+                methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
+                args = arrayOf(baseDir, config.bootstrapAddress, config.nodeName, config.autoReconnect),
+                parameterTypes = arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
+            )
+            return
+        }
+
+        throw IllegalStateException("bridge method not found: StartNode/StartNodeWithOptions")
     }
 
     fun stop() {
@@ -83,6 +105,22 @@ class SwarmRuntime(
             }
         }
         return ""
+    }
+
+    private fun hasMethod(
+        bridge: Class<*>,
+        methodNames: List<String>,
+        parameterTypes: Array<out Class<*>>,
+    ): Boolean {
+        for (name in methodNames) {
+            try {
+                bridge.getMethod(name, *parameterTypes)
+                return true
+            } catch (_: NoSuchMethodException) {
+                continue
+            }
+        }
+        return false
     }
 
     private fun invokeStaticByNames(
