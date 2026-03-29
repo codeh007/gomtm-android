@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
     inputs:
@@ -21,6 +24,10 @@ on:
         required: false
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.label || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -36,72 +43,35 @@ env:
 jobs:
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate gomtm swarm AAR contract
-        shell: bash
-        run: |
-          test -n "${GOMTM_SWARM_AAR_URL}" || { echo "Missing GOMTM_SWARM_AAR_URL"; exit 1; }
-          test -n "${GOMTM_SWARM_METADATA_URL}" || { echo "Missing GOMTM_SWARM_METADATA_URL"; exit 1; }
-          test -n "${GOMTM_SWARM_AAR_VERSION}" || { echo "Missing GOMTM_SWARM_AAR_VERSION"; exit 1; }
-          test -n "${GOMTM_SWARM_AAR_SHA256}" || { echo "Missing GOMTM_SWARM_AAR_SHA256"; exit 1; }
-
-      - name: Download pinned gomtm swarm AAR and metadata
-        shell: bash
-        run: |
-          mkdir -p app/libs dist
-          auth_token="${GOMTM_RELEASE_TOKEN:-${GH_FALLBACK_TOKEN}}"
-          curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_AAR_URL}" -o "app/libs/${GOMTM_SWARM_AAR_NAME}"
-          curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_METADATA_URL}" -o "dist/gomtm-swarm-android.json"
-          echo "${GOMTM_SWARM_AAR_SHA256}  app/libs/${GOMTM_SWARM_AAR_NAME}" | sha256sum --check --strict --status
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          meta = json.loads(Path('dist/gomtm-swarm-android.json').read_text())
-          expected_version = os.environ['GOMTM_SWARM_AAR_VERSION']
-          expected_sha = os.environ['GOMTM_SWARM_AAR_SHA256']
-          if meta.get('artifact') != 'gomtm-swarm-android.aar':
-              raise SystemExit(f"unexpected artifact: {meta.get('artifact')}")
-          if meta.get('version') != expected_version:
-              raise SystemExit(f"metadata version mismatch: {meta.get('version')} != {expected_version}")
-          if meta.get('sha256') != expected_sha:
-              raise SystemExit(f"metadata sha256 mismatch: {meta.get('sha256')} != {expected_sha}")
-          PY
-          ls -lh app/libs dist
+      - name: Prepare pinned gomtm swarm AAR
+        uses: ./.github/actions/setup-pinned-gomtm-swarm-aar
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Validate Gradle wrapper
-        uses: gradle/actions/wrapper-validation@v3
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Run lint
-        run: ./gradlew lint
-
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
-
-      - name: Assemble debug APK
-        run: ./gradlew assembleDebug
+      - name: Run quality checks and assemble debug APK
+        run: ./gradlew --no-daemon lint testDebugUnitTest assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -109,3 +79,4 @@ jobs:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14

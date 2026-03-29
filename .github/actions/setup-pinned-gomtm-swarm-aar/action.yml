@@ -1,0 +1,67 @@
+name: Setup pinned gomtm swarm AAR
+description: Restore or download the pinned gomtm swarm AAR and validate its metadata contract.
+
+runs:
+  using: composite
+  steps:
+    - name: Validate gomtm swarm AAR contract inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        for key in GOMTM_SWARM_AAR_URL GOMTM_SWARM_METADATA_URL GOMTM_SWARM_AAR_VERSION GOMTM_SWARM_AAR_SHA256 GOMTM_SWARM_AAR_NAME; do
+          if [[ -z "${!key:-}" ]]; then
+            echo "Missing ${key}" >&2
+            exit 1
+          fi
+        done
+
+    - name: Prepare AAR directories
+      shell: bash
+      run: mkdir -p app/libs dist
+
+    - name: Restore pinned gomtm swarm AAR cache
+      id: aar-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          app/libs/gomtm-swarm-android.aar
+          dist/gomtm-swarm-android.json
+        key: gomtm-swarm-aar-${{ runner.os }}-${{ env.GOMTM_SWARM_AAR_VERSION }}-${{ env.GOMTM_SWARM_AAR_SHA256 }}
+
+    - name: Download pinned gomtm swarm AAR and metadata
+      if: steps.aar-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        auth_token="${GOMTM_RELEASE_TOKEN:-${GH_FALLBACK_TOKEN:-}}"
+        if [[ -z "${auth_token}" ]]; then
+          echo "Missing GOMTM_RELEASE_TOKEN or GH_FALLBACK_TOKEN" >&2
+          exit 1
+        fi
+        curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_AAR_URL}" -o "app/libs/${GOMTM_SWARM_AAR_NAME}"
+        curl -fsSL -H "Authorization: Bearer ${auth_token}" -H "Accept: application/octet-stream" "${GOMTM_SWARM_METADATA_URL}" -o "dist/gomtm-swarm-android.json"
+
+    - name: Validate pinned gomtm swarm AAR cache or download
+      shell: bash
+      run: |
+        set -euo pipefail
+        test -f "app/libs/${GOMTM_SWARM_AAR_NAME}" || { echo "Missing app/libs/${GOMTM_SWARM_AAR_NAME}" >&2; exit 1; }
+        test -f dist/gomtm-swarm-android.json || { echo "Missing dist/gomtm-swarm-android.json" >&2; exit 1; }
+        echo "${GOMTM_SWARM_AAR_SHA256}  app/libs/${GOMTM_SWARM_AAR_NAME}" | sha256sum --check --strict --status
+        python - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        meta = json.loads(Path('dist/gomtm-swarm-android.json').read_text())
+        expected_version = os.environ['GOMTM_SWARM_AAR_VERSION']
+        expected_sha = os.environ['GOMTM_SWARM_AAR_SHA256']
+
+        if meta.get('artifact') != 'gomtm-swarm-android.aar':
+            raise SystemExit(f"unexpected artifact: {meta.get('artifact')}")
+        if meta.get('version') != expected_version:
+            raise SystemExit(f"metadata version mismatch: {meta.get('version')} != {expected_version}")
+        if meta.get('sha256') != expected_sha:
+            raise SystemExit(f"metadata sha256 mismatch: {meta.get('sha256')} != {expected_sha}")
+        PY
+        ls -lh app/libs dist
