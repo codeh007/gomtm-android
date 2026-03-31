@@ -1,5 +1,6 @@
 package com.gomtm.android
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -21,6 +22,7 @@ import com.gomtm.android.web.HostSettingsStore
 import com.gomtm.android.web.SharedPreferencesHostSettingsStore
 import com.gomtm.android.web.SwarmRuntimeBridgeHost
 import com.gomtm.android.web.defaultAccessibilitySettingsLauncher
+import com.gomtm.android.web.toSwarmNodeConfig
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -64,7 +66,7 @@ class MainActivity : AppCompatActivity() {
         hostBridge = GomtmHostBridge(
             runtimeHost = SwarmRuntimeBridgeHost(this, swarmRuntime),
             settingsStore = settingsStore,
-            openAccessibilitySettings = defaultAccessibilitySettingsLauncher(this),
+            launchAccessibilitySettings = defaultAccessibilitySettingsLauncher(this),
             navigateToUrl = { url -> runOnUiThread { loadUrlInHost(url) } },
         )
 
@@ -105,7 +107,7 @@ class MainActivity : AppCompatActivity() {
             webView.removeJavascriptInterface(HOST_BRIDGE_NAME)
             webView.stopLoading()
             webView.webChromeClient = null
-            webView.webViewClient = null
+            webView.webViewClient = WebViewClient()
             webView.destroy()
         }
         backgroundWorker.shutdownNow()
@@ -136,12 +138,21 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val targetUrl = request?.url?.toString() ?: return true
-                return if (isBootstrapPage(targetUrl) || isRemoteNavigationUrl(targetUrl)) {
-                    loadUrlInHost(targetUrl)
-                    true
-                } else {
-                    true
+                val targetRequest = request ?: return false
+                val targetUrl = targetRequest.url.toString()
+                if (!targetRequest.isForMainFrame) {
+                    return false
+                }
+                return when {
+                    isBootstrapPage(targetUrl) || isRemoteNavigationUrl(targetUrl) -> {
+                        syncBridgeForUrl(targetUrl)
+                        false
+                    }
+                    isExternalAppNavigation(targetRequest.url) -> {
+                        openExternalNavigation(targetRequest.url)
+                        true
+                    }
+                    else -> true
                 }
             }
         }
@@ -172,7 +183,8 @@ class MainActivity : AppCompatActivity() {
         val previousIndex = history.currentIndex - 1
         val previousUrl = if (previousIndex >= 0) history.getItemAtIndex(previousIndex).url else null
         if (isBootstrapPage(previousUrl)) {
-            loadUrlInHost(GomtmHostBridge.LOCAL_BOOTSTRAP_URL)
+            syncBridgeForUrl(previousUrl)
+            webView.goBack()
             return true
         }
 
@@ -221,6 +233,34 @@ class MainActivity : AppCompatActivity() {
     private fun isRemoteNavigationUrl(url: String?): Boolean {
         val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
         return uri.scheme in setOf("http", "https") && !uri.host.isNullOrBlank()
+    }
+
+    private fun isExternalAppNavigation(uri: Uri): Boolean {
+        return uri.scheme in setOf("intent", "mailto", "tel", "sms")
+    }
+
+    private fun openExternalNavigation(uri: Uri) {
+        val intent = runCatching {
+            if (uri.scheme == "intent") {
+                Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
+            } else {
+                Intent(Intent.ACTION_VIEW, uri)
+            }
+        }.getOrNull() ?: return
+
+        runCatching {
+            startActivity(intent)
+        }.recoverCatching {
+            if (uri.scheme == "intent") {
+                intent.getStringExtra("browser_fallback_url")?.let { fallback ->
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallback)))
+                }
+            }
+        }.getOrElse { error ->
+            if (error !is ActivityNotFoundException) {
+                throw error
+            }
+        }
     }
 
     companion object {

@@ -6,7 +6,8 @@ Deliver a public Android node app that can:
 
 - consume a published, pinned gomtm Android swarm AAR
 - start a real gomtm swarm node runtime
-- show peer id, bootstrap address, logs, and discovered peers
+- use a single WebView bootstrap shell rather than parallel native/bootstrap activities
+- show peer id, bootstrap address, logs, permissions, and discovered peers
 - ship through GitHub Actions with APK provenance recorded
 
 ## Explicit non-goals for this milestone

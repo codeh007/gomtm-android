@@ -15,9 +15,10 @@ The active architecture is:
 
 ## What this repo is responsible for
 
-- Android UI and product shell
+- a single-Activity WebView host with an embedded bootstrap page
 - starting and stopping a real gomtm swarm node runtime
-- showing runtime state, peer id, bootstrap address, logs, and discovered peers
+- showing runtime state, peer id, bootstrap address, logs, permissions, and discovered peers
+- navigating from the embedded bootstrap page into external gomtmui pages inside the same WebView
 - GitHub Actions CI and release automation
 - APK publication
 - consuming a **published, pinned** `gomtm-swarm-android.aar`
@@ -49,6 +50,17 @@ The app consumes a published `gomtm-swarm-android.aar` and drives the current no
 - `drainLogs()`
 
 The UI is expected to show real runtime data, not a host-shell placeholder.
+
+## Host shell shape
+
+The current Android shell has been intentionally reduced to:
+
+- one `MainActivity`
+- one full-screen `WebView`
+- one embedded HTML+JS bootstrap page under `app/src/main/assets/bootstrap/`
+- one Android <-> JS host bridge for runtime control and diagnostics
+
+There is no longer a second "web console" Activity or a parallel native bootstrap form.
 
 ## Related docs
 

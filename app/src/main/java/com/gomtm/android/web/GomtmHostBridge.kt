@@ -48,7 +48,7 @@ class SwarmRuntimeBridgeHost(
 class GomtmHostBridge(
     private val runtimeHost: SwarmRuntimeHost,
     private val settingsStore: HostSettingsStore,
-    private val openAccessibilitySettings: () -> Unit,
+    private val launchAccessibilitySettings: () -> Unit,
     private val navigateToUrl: (String) -> Unit,
 ) {
     @JavascriptInterface
@@ -94,7 +94,7 @@ class GomtmHostBridge(
 
     @JavascriptInterface
     fun openAccessibilitySettings(): Boolean {
-        openAccessibilitySettings()
+        launchAccessibilitySettings()
         return true
     }
 

@@ -23,7 +23,7 @@ class GomtmHostBridgeTest {
         val bridge = GomtmHostBridge(
             runtimeHost = runtime,
             settingsStore = settingsStore,
-            openAccessibilitySettings = {},
+            launchAccessibilitySettings = {},
             navigateToUrl = {},
         )
 
@@ -43,7 +43,7 @@ class GomtmHostBridgeTest {
         val bridge = GomtmHostBridge(
             runtimeHost = runtime,
             settingsStore = settingsStore,
-            openAccessibilitySettings = {},
+            launchAccessibilitySettings = {},
             navigateToUrl = {},
         )
 
@@ -69,7 +69,7 @@ class GomtmHostBridgeTest {
         val bridge = GomtmHostBridge(
             runtimeHost = FakeRuntimeHost(),
             settingsStore = settingsStore,
-            openAccessibilitySettings = {},
+            launchAccessibilitySettings = {},
             navigateToUrl = {},
         )
 
@@ -103,7 +103,7 @@ class GomtmHostBridgeTest {
         val bridge = GomtmHostBridge(
             runtimeHost = FakeRuntimeHost(),
             settingsStore = InMemorySettingsStore(HostSettings()),
-            openAccessibilitySettings = {},
+            launchAccessibilitySettings = {},
             navigateToUrl = { navigatedTo = it },
         )
 
@@ -120,7 +120,7 @@ class GomtmHostBridgeTest {
         val bridge = GomtmHostBridge(
             runtimeHost = FakeRuntimeHost(),
             settingsStore = InMemorySettingsStore(HostSettings()),
-            openAccessibilitySettings = {},
+            launchAccessibilitySettings = {},
             navigateToUrl = { navigated = true },
         )
 
@@ -137,7 +137,7 @@ class GomtmHostBridgeTest {
         val bridge = GomtmHostBridge(
             runtimeHost = FakeRuntimeHost(),
             settingsStore = InMemorySettingsStore(HostSettings()),
-            openAccessibilitySettings = { opened = true },
+            launchAccessibilitySettings = { opened = true },
             navigateToUrl = {},
         )
 
@@ -157,6 +157,8 @@ class GomtmHostBridgeTest {
         override fun stop() {
             state = "Stopped"
         }
+
+        override fun drainLogs(): String = "bootstrap ok"
 
         override fun probe(): SwarmStatus = SwarmStatus(
             bridgeClassName = "io.nekohasekai.p2pandroid.P2pandroid",

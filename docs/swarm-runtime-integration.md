@@ -11,7 +11,9 @@ Current contract:
 - GitHub Actions downloads a specific `gomtm-swarm-android.aar`
 - GitHub Actions verifies its SHA256 before Gradle runs
 - the app binds to the current gomtm node runtime surface
-- the UI shows real runtime state, peer id, bootstrap address, logs, and discovered peers
+- the app boots into an embedded HTML+JS bootstrap page inside a single WebView host
+- that bootstrap page shows real runtime state, peer id, bootstrap address, logs, permissions, and discovered peers
+- external gomtmui pages open inside the same WebView, but without keeping the host bridge exposed
 - the APK release records which gomtm AAR version / URL / SHA256 it consumed
 
 ## Upstream gomtm requirements
@@ -56,8 +58,11 @@ The public app UI must expose:
 - runtime state
 - peer id
 - bootstrap address
+- permission diagnostics
 - discovered peers list
 - last error
 - recent logs
 
 No part of the UI should pretend that a node is running when the bound runtime is absent or misconfigured.
+
+The Android shell must stay thin: do not reintroduce a second Activity or a parallel native form just to host swarm pages.
