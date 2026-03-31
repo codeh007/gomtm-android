@@ -3,6 +3,8 @@ package com.gomtm.android
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.content.Intent
+import android.provider.Settings
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -11,13 +13,27 @@ import com.gomtm.android.swarm.SwarmNodeConfig
 import com.gomtm.android.swarm.SwarmRuntime
 import com.gomtm.android.swarm.SwarmUiModel
 import com.google.android.material.button.MaterialButton
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = SwarmRuntime()
     private val refreshHandler = Handler(Looper.getMainLooper())
+    private val backgroundWorker = Executors.newSingleThreadExecutor()
+    private val remoteControlTickRunning = AtomicBoolean(false)
     private var actionError: String? = null
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
+            if (remoteControlTickRunning.compareAndSet(false, true)) {
+                backgroundWorker.execute {
+                    try {
+                        swarmRuntime.processRemoteControlTick(this@MainActivity, timeoutMs = 0)
+                    } catch (_: Throwable) {
+                    } finally {
+                        remoteControlTickRunning.set(false)
+                    }
+                }
+            }
             render()
             refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
         }
@@ -45,6 +61,9 @@ class MainActivity : AppCompatActivity() {
             actionError = null
             render()
         }
+        findViewById<MaterialButton>(R.id.accessibilitySettingsButton).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
 
         maybeAutoStartFromIntent()
         render()
@@ -59,6 +78,11 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         refreshHandler.removeCallbacks(autoRefreshRunnable)
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        backgroundWorker.shutdownNow()
+        super.onDestroy()
     }
 
     private fun runAction(action: () -> Unit) {
@@ -95,11 +119,14 @@ class MainActivity : AppCompatActivity() {
         val status = swarmRuntime.probe()
         val logs = swarmRuntime.drainLogs()
         val uiModel = SwarmUiModel.from(status = status, actionError = actionError)
+        val remotePermissions = swarmRuntime.remoteControlPermissionState(this)
 
         setText(R.id.bridgeValue, status.bridgeClassName.ifBlank { getString(R.string.value_not_available) })
         setText(R.id.stateValue, status.state)
         setText(R.id.peerValue, status.peerId.ifBlank { getString(R.string.value_not_available) })
         setText(R.id.bootstrapValue, uiModel.connectedBootstrap)
+        setText(R.id.accessibilityValue, remotePermissions.accessibility)
+        setText(R.id.screenCaptureValue, remotePermissions.screenCapture)
         setText(R.id.errorValue, uiModel.errorText)
         setText(R.id.peersValue, formatPeers(status.discoveredPeers))
         setText(R.id.logsValue, logs.ifBlank { getString(R.string.value_no_logs_yet) })
@@ -157,6 +184,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BOOTSTRAP = "bootstrap"
         private const val KEY_NODE_NAME = "node_name"
         private const val EXTRA_AUTO_START = "auto_start"
-        private const val REFRESH_INTERVAL_MS = 3000L
+        private const val REFRESH_INTERVAL_MS = 750L
     }
 }

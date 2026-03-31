@@ -50,6 +50,35 @@ class SwarmRuntimeTest {
         assertEquals("android-b", peers.single().name)
     }
 
+    @Test
+    fun readsRemoteControlRequestFromBridge() {
+        val runtime = SwarmRuntime(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+        val request = runtime.pollRemoteControlRequest(timeoutMs = 0)
+
+        assertTrue(request.contains("screen.snapshot"))
+    }
+
+    @Test
+    fun forwardsRemoteControlResponseAndPermissionStateToBridge() {
+        val runtime = SwarmRuntime(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+        runtime.resolveRemoteControlResponse("{\"request_id\":\"req-1\",\"ok\":true}")
+        runtime.setRemoteControlPermissionState("granted", "unsupported")
+
+        assertEquals("{\"request_id\":\"req-1\",\"ok\":true}", FakeNodeBridge.lastRemoteControlResponse)
+        assertEquals("granted", FakeNodeBridge.lastAccessibilityPermission)
+        assertEquals("unsupported", FakeNodeBridge.lastScreenCapturePermission)
+    }
+
     class FakeConfig {
         fun setBootstrapAddr(@Suppress("UNUSED_PARAMETER") value: String) = Unit
         fun setNodeName(@Suppress("UNUSED_PARAMETER") value: String) = Unit
@@ -58,6 +87,15 @@ class SwarmRuntimeTest {
 
     class FakeNodeBridge {
         companion object {
+            @JvmField
+            var lastRemoteControlResponse: String = ""
+
+            @JvmField
+            var lastAccessibilityPermission: String = ""
+
+            @JvmField
+            var lastScreenCapturePermission: String = ""
+
             @JvmStatic
             fun startNode(@Suppress("UNUSED_PARAMETER") baseDir: String, @Suppress("UNUSED_PARAMETER") config: FakeConfig) = Unit
 
@@ -84,6 +122,21 @@ class SwarmRuntimeTest {
 
             @JvmStatic
             fun drainLogs(): String = "bootstrap ok"
+
+            @JvmStatic
+            fun pollRemoteControlRequest(@Suppress("UNUSED_PARAMETER") timeoutMs: Long): String =
+                "{\"request_id\":\"req-1\",\"command\":\"screen.snapshot\",\"params\":{\"format\":\"png\"}}"
+
+            @JvmStatic
+            fun resolveRemoteControlResponse(responseJson: String) {
+                lastRemoteControlResponse = responseJson
+            }
+
+            @JvmStatic
+            fun setRemoteControlPermissionState(accessibility: String, screenCapture: String) {
+                lastAccessibilityPermission = accessibility
+                lastScreenCapturePermission = screenCapture
+            }
         }
     }
 }

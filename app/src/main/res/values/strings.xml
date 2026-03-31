@@ -13,9 +13,13 @@
     <string name="state_label">Runtime state</string>
     <string name="peer_label">Peer ID</string>
     <string name="bootstrap_label">Connected bootstrap</string>
+    <string name="accessibility_label">Accessibility permission</string>
+    <string name="screen_capture_label">Screen capture permission</string>
     <string name="peers_label">Discovered peers</string>
     <string name="error_label">Last error</string>
     <string name="logs_label">Recent logs</string>
+    <string name="accessibility_service_label">gomtm remote control accessibility</string>
+    <string name="open_accessibility_settings_button">Open accessibility settings</string>
     <string name="value_not_available">Not available</string>
     <string name="value_none">None</string>
     <string name="value_no_logs_yet">No runtime logs yet.</string>
