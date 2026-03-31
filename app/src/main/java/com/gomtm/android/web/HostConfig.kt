@@ -4,32 +4,32 @@ import android.content.Context
 import com.gomtm.android.swarm.SwarmNodeConfig
 import java.net.URI
 
-data class WebConsoleSettings(
+data class HostSettings(
     val bootstrapAddress: String = SwarmNodeConfig.DEFAULT_BOOTSTRAP,
     val nodeName: String = SwarmNodeConfig.defaultNodeName(),
     val consoleUrl: String = "",
 )
 
-interface WebConsoleSettingsStore {
-    fun load(): WebConsoleSettings
+interface HostSettingsStore {
+    fun load(): HostSettings
 
-    fun save(settings: WebConsoleSettings)
+    fun save(settings: HostSettings)
 }
 
-class SharedPreferencesWebConsoleSettingsStore(
+class SharedPreferencesHostSettingsStore(
     context: Context,
-) : WebConsoleSettingsStore {
+) : HostSettingsStore {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    override fun load(): WebConsoleSettings {
-        return WebConsoleSettings(
+    override fun load(): HostSettings {
+        return HostSettings(
             bootstrapAddress = preferences.getString(KEY_BOOTSTRAP, SwarmNodeConfig.DEFAULT_BOOTSTRAP).orEmpty(),
             nodeName = preferences.getString(KEY_NODE_NAME, SwarmNodeConfig.defaultNodeName()).orEmpty(),
             consoleUrl = preferences.getString(KEY_CONSOLE_URL, "").orEmpty(),
         )
     }
 
-    override fun save(settings: WebConsoleSettings) {
+    override fun save(settings: HostSettings) {
         preferences
             .edit()
             .putString(KEY_BOOTSTRAP, settings.bootstrapAddress)
@@ -46,7 +46,7 @@ class SharedPreferencesWebConsoleSettingsStore(
     }
 }
 
-fun resolveWebConsoleLaunchUrl(raw: String, defaultPath: String = "/dash/p2p"): String? {
+fun resolveHostNavigationUrl(raw: String, defaultPath: String = "/dash/p2p"): String? {
     val trimmed = raw.trim()
     if (trimmed.isEmpty()) {
         return null
@@ -61,7 +61,7 @@ fun resolveWebConsoleLaunchUrl(raw: String, defaultPath: String = "/dash/p2p"): 
     return URI(uri.scheme, uri.rawAuthority, normalizedPath, uri.rawQuery, uri.rawFragment).toString()
 }
 
-fun WebConsoleSettings.toSwarmNodeConfig(): SwarmNodeConfig {
+fun HostSettings.toSwarmNodeConfig(): SwarmNodeConfig {
     return SwarmNodeConfig(
         bootstrapAddress = bootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
         nodeName = nodeName.ifBlank { SwarmNodeConfig.defaultNodeName() },

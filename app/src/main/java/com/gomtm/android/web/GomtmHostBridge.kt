@@ -10,6 +10,8 @@ import com.gomtm.android.swarm.SwarmStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
+const val HOST_BRIDGE_NAME = "GomtmAndroid"
+
 interface SwarmRuntimeHost {
     fun start(config: com.gomtm.android.swarm.SwarmNodeConfig)
 
@@ -43,10 +45,11 @@ class SwarmRuntimeBridgeHost(
     }
 }
 
-class GomtmWebViewBridge(
+class GomtmHostBridge(
     private val runtimeHost: SwarmRuntimeHost,
-    private val settingsStore: WebConsoleSettingsStore,
+    private val settingsStore: HostSettingsStore,
     private val openAccessibilitySettings: () -> Unit,
+    private val navigateToUrl: (String) -> Unit,
 ) {
     @JavascriptInterface
     fun isAvailable(): Boolean = true
@@ -57,17 +60,36 @@ class GomtmWebViewBridge(
     }
 
     @JavascriptInterface
+    fun saveHostSettings(configJson: String): String {
+        return runCatching {
+            val nextSettings = mergeSettings(settingsStore.load(), configJson)
+            settingsStore.save(nextSettings)
+            buildSnapshot(nextSettings)
+        }.getOrElse { error ->
+            buildSnapshot(settingsStore.load(), actionError = error.message ?: error.javaClass.simpleName)
+        }
+    }
+
+    @JavascriptInterface
     fun startNode(configJson: String): String {
-        val nextSettings = mergeSettings(settingsStore.load(), configJson)
-        settingsStore.save(nextSettings)
-        runtimeHost.start(nextSettings.toSwarmNodeConfig())
-        return buildSnapshot(nextSettings)
+        return runCatching {
+            val nextSettings = mergeSettings(settingsStore.load(), configJson)
+            settingsStore.save(nextSettings)
+            runtimeHost.start(nextSettings.toSwarmNodeConfig())
+            buildSnapshot(nextSettings)
+        }.getOrElse { error ->
+            buildSnapshot(settingsStore.load(), actionError = error.message ?: error.javaClass.simpleName)
+        }
     }
 
     @JavascriptInterface
     fun stopNode(): String {
-        runtimeHost.stop()
-        return buildSnapshot(settingsStore.load())
+        return runCatching {
+            runtimeHost.stop()
+            buildSnapshot(settingsStore.load())
+        }.getOrElse { error ->
+            buildSnapshot(settingsStore.load(), actionError = error.message ?: error.javaClass.simpleName)
+        }
     }
 
     @JavascriptInterface
@@ -76,15 +98,28 @@ class GomtmWebViewBridge(
         return true
     }
 
-    private fun mergeSettings(current: WebConsoleSettings, configJson: String): WebConsoleSettings {
+    @JavascriptInterface
+    fun openConsoleUrl(rawUrl: String): String {
+        val current = settingsStore.load()
+        val candidate = rawUrl.trim().ifBlank { current.consoleUrl }
+        val normalized = resolveHostNavigationUrl(candidate)
+            ?: return JSONObject().put("ok", false).put("error", "invalid_console_url").toString()
+
+        settingsStore.save(current.copy(consoleUrl = normalized))
+        navigateToUrl(normalized)
+        return JSONObject().put("ok", true).put("url", normalized).toString()
+    }
+
+    private fun mergeSettings(current: HostSettings, configJson: String): HostSettings {
         val json = runCatching { JSONObject(configJson) }.getOrNull()
         return current.copy(
             bootstrapAddress = json?.optString("bootstrap_address")?.trim().orEmpty().ifBlank { current.bootstrapAddress },
             nodeName = json?.optString("node_name")?.trim().orEmpty().ifBlank { current.nodeName },
+            consoleUrl = json?.optString("console_url")?.trim().orEmpty().ifBlank { current.consoleUrl },
         )
     }
 
-    private fun buildSnapshot(settings: WebConsoleSettings): String {
+    private fun buildSnapshot(settings: HostSettings, actionError: String? = null): String {
         val status = runtimeHost.probe()
         val permissions = runtimeHost.remoteControlPermissionState()
         val logs = runtimeHost.drainLogs()
@@ -94,7 +129,8 @@ class GomtmWebViewBridge(
                 JSONObject()
                     .put("available", true)
                     .put("surface", "android_webview")
-                    .put("surface_version", "v1"),
+                    .put("surface_version", "v2")
+                    .put("bridge_name", HOST_BRIDGE_NAME),
             )
             .put(
                 "config",
@@ -110,6 +146,7 @@ class GomtmWebViewBridge(
                     .put("peer_id", status.peerId)
                     .put("bootstrap_address", status.bootstrapAddress)
                     .put("last_error", status.lastError)
+                    .put("action_error", actionError.orEmpty())
                     .put("recent_logs", logs)
                     .put("bridge_class_name", status.bridgeClassName)
                     .put(
@@ -121,6 +158,10 @@ class GomtmWebViewBridge(
                     .put("discovered_peers", status.discoveredPeers.toJsonArray()),
             )
             .toString()
+    }
+
+    companion object {
+        const val LOCAL_BOOTSTRAP_URL = "https://appassets.androidplatform.net/assets/bootstrap/index.html"
     }
 }
 

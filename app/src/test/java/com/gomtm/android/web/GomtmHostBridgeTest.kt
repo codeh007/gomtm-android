@@ -9,21 +9,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class GomtmWebViewBridgeTest {
+class GomtmHostBridgeTest {
     @Test
     fun returnsRuntimeSnapshotWithStoredConfigAndPermissionState() {
         val runtime = FakeRuntimeHost()
         val settingsStore = InMemorySettingsStore(
-            WebConsoleSettings(
+            HostSettings(
                 bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/bootstrap",
                 nodeName = "android-cloud-a",
                 consoleUrl = "https://gomtm.example.com",
             ),
         )
-        val bridge = GomtmWebViewBridge(
+        val bridge = GomtmHostBridge(
             runtimeHost = runtime,
             settingsStore = settingsStore,
             openAccessibilitySettings = {},
+            navigateToUrl = {},
         )
 
         val snapshot = JSONObject(bridge.getRuntimeSnapshot())
@@ -38,45 +39,106 @@ class GomtmWebViewBridgeTest {
     @Test
     fun startNodePersistsRequestedConfigAndReturnsUpdatedSnapshot() {
         val runtime = FakeRuntimeHost()
-        val settingsStore = InMemorySettingsStore(WebConsoleSettings())
-        val bridge = GomtmWebViewBridge(
+        val settingsStore = InMemorySettingsStore(HostSettings())
+        val bridge = GomtmHostBridge(
             runtimeHost = runtime,
             settingsStore = settingsStore,
             openAccessibilitySettings = {},
+            navigateToUrl = {},
         )
 
         val snapshot = JSONObject(
             bridge.startNode(
                 """
-                {"bootstrap_address":"/ip4/156.225.19.101/tcp/4101/p2p/relay","node_name":"android-cloud-b"}
+                {"bootstrap_address":"/ip4/156.225.19.101/tcp/4101/p2p/relay","node_name":"android-cloud-b","console_url":"gomtm.example.com"}
                 """.trimIndent(),
             ),
         )
 
         assertEquals("/ip4/156.225.19.101/tcp/4101/p2p/relay", settingsStore.current.bootstrapAddress)
         assertEquals("android-cloud-b", settingsStore.current.nodeName)
+        assertEquals("gomtm.example.com", settingsStore.current.consoleUrl)
         assertEquals(1, runtime.startedConfigs.size)
         assertEquals("android-cloud-b", runtime.startedConfigs.single().nodeName)
         assertEquals("Starting", snapshot.getJSONObject("runtime").getString("state"))
     }
 
     @Test
-    fun resolvesLaunchUrlAndAppendsDashP2PWhenOnlyOriginIsProvided() {
-        assertEquals("https://gomtm.example.com/dash/p2p", resolveWebConsoleLaunchUrl("gomtm.example.com"))
-        assertEquals("http://10.0.2.2:3700/dash/p2p", resolveWebConsoleLaunchUrl("http://10.0.2.2:3700"))
+    fun savesHostSettingsWithoutStartingNode() {
+        val settingsStore = InMemorySettingsStore(HostSettings())
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = settingsStore,
+            openAccessibilitySettings = {},
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(
+            bridge.saveHostSettings(
+                """
+                {"bootstrap_address":"/ip4/203.0.113.1/tcp/4101/p2p/relay","node_name":"android-save-only","console_url":"http://10.0.2.2:3700"}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("/ip4/203.0.113.1/tcp/4101/p2p/relay", settingsStore.current.bootstrapAddress)
+        assertEquals("android-save-only", settingsStore.current.nodeName)
+        assertEquals("http://10.0.2.2:3700", settingsStore.current.consoleUrl)
+        assertEquals("android-save-only", snapshot.getJSONObject("config").getString("node_name"))
+    }
+
+    @Test
+    fun resolvesHostNavigationUrlAndAppendsDashP2PWhenOnlyOriginIsProvided() {
+        assertEquals("https://gomtm.example.com/dash/p2p", resolveHostNavigationUrl("gomtm.example.com"))
+        assertEquals("http://10.0.2.2:3700/dash/p2p", resolveHostNavigationUrl("http://10.0.2.2:3700"))
         assertEquals(
             "https://gomtm.example.com/dash/p2p?tab=host",
-            resolveWebConsoleLaunchUrl("https://gomtm.example.com?tab=host"),
+            resolveHostNavigationUrl("https://gomtm.example.com?tab=host"),
         )
+    }
+
+    @Test
+    fun openConsoleUrlNormalizesAndDelegatesNavigation() {
+        var navigatedTo = ""
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = InMemorySettingsStore(HostSettings()),
+            openAccessibilitySettings = {},
+            navigateToUrl = { navigatedTo = it },
+        )
+
+        val result = JSONObject(bridge.openConsoleUrl("gomtm.example.com"))
+
+        assertEquals(true, result.getBoolean("ok"))
+        assertEquals("https://gomtm.example.com/dash/p2p", result.getString("url"))
+        assertEquals("https://gomtm.example.com/dash/p2p", navigatedTo)
+    }
+
+    @Test
+    fun rejectsInvalidConsoleUrl() {
+        var navigated = false
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = InMemorySettingsStore(HostSettings()),
+            openAccessibilitySettings = {},
+            navigateToUrl = { navigated = true },
+        )
+
+        val result = JSONObject(bridge.openConsoleUrl("javascript:alert(1)"))
+
+        assertEquals(false, result.getBoolean("ok"))
+        assertEquals("invalid_console_url", result.getString("error"))
+        assertEquals(false, navigated)
     }
 
     @Test
     fun delegatesAccessibilitySettingsToHostCallback() {
         var opened = false
-        val bridge = GomtmWebViewBridge(
+        val bridge = GomtmHostBridge(
             runtimeHost = FakeRuntimeHost(),
-            settingsStore = InMemorySettingsStore(WebConsoleSettings()),
+            settingsStore = InMemorySettingsStore(HostSettings()),
             openAccessibilitySettings = { opened = true },
+            navigateToUrl = {},
         )
 
         assertTrue(bridge.openAccessibilitySettings())
@@ -120,12 +182,12 @@ class GomtmWebViewBridgeTest {
         }
     }
 
-    private class InMemorySettingsStore(initial: WebConsoleSettings) : WebConsoleSettingsStore {
-        var current: WebConsoleSettings = initial
+    private class InMemorySettingsStore(initial: HostSettings) : HostSettingsStore {
+        var current: HostSettings = initial
 
-        override fun load(): WebConsoleSettings = current
+        override fun load(): HostSettings = current
 
-        override fun save(settings: WebConsoleSettings) {
+        override fun save(settings: HostSettings) {
             current = settings
         }
     }

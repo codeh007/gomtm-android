@@ -20,10 +20,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".web.WebConsoleActivity"
-            android:exported="false" />
-
         <service
             android:name=".swarm.GomtmAccessibilityService"
             android:exported="false"

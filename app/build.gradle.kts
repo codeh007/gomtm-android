@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.webkit)
 
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
