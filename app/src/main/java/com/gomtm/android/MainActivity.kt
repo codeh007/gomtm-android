@@ -12,6 +12,10 @@ import com.gomtm.android.swarm.DiscoveredPeer
 import com.gomtm.android.swarm.SwarmNodeConfig
 import com.gomtm.android.swarm.SwarmRuntime
 import com.gomtm.android.swarm.SwarmUiModel
+import com.gomtm.android.web.SharedPreferencesWebConsoleSettingsStore
+import com.gomtm.android.web.WebConsoleActivity
+import com.gomtm.android.web.WebConsoleSettings
+import com.gomtm.android.web.resolveWebConsoleLaunchUrl
 import com.google.android.material.button.MaterialButton
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -63,6 +67,16 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<MaterialButton>(R.id.accessibilitySettingsButton).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+        findViewById<MaterialButton>(R.id.openConsoleButton).setOnClickListener {
+            saveInputs()
+            val launchUrl = resolveWebConsoleLaunchUrl(inputText(R.id.consoleUrlInput))
+            if (launchUrl == null) {
+                actionError = getString(R.string.console_url_missing)
+                render()
+                return@setOnClickListener
+            }
+            startActivity(WebConsoleActivity.intent(this, launchUrl))
         }
 
         maybeAutoStartFromIntent()
@@ -150,23 +164,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restoreInputs() {
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        setInput(
-            R.id.bootstrapInput,
-            prefs.getString(KEY_BOOTSTRAP, SwarmNodeConfig.DEFAULT_BOOTSTRAP).orEmpty(),
-        )
-        setInput(
-            R.id.nodeNameInput,
-            prefs.getString(KEY_NODE_NAME, SwarmNodeConfig.defaultNodeName()).orEmpty(),
-        )
+        val settings = SharedPreferencesWebConsoleSettingsStore(this).load()
+        setInput(R.id.bootstrapInput, settings.bootstrapAddress)
+        setInput(R.id.nodeNameInput, settings.nodeName)
+        setInput(R.id.consoleUrlInput, settings.consoleUrl)
     }
 
     private fun saveInputs() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit()
-            .putString(KEY_BOOTSTRAP, inputText(R.id.bootstrapInput))
-            .putString(KEY_NODE_NAME, inputText(R.id.nodeNameInput))
-            .apply()
+        SharedPreferencesWebConsoleSettingsStore(this).save(
+            WebConsoleSettings(
+                bootstrapAddress = inputText(R.id.bootstrapInput).ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
+                nodeName = inputText(R.id.nodeNameInput).ifBlank { SwarmNodeConfig.defaultNodeName() },
+                consoleUrl = inputText(R.id.consoleUrlInput),
+            ),
+        )
     }
 
     private fun inputText(viewId: Int): String = findViewById<EditText>(viewId).text.toString().trim()
@@ -180,9 +191,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val PREFS_NAME = "gomtm-android"
-        private const val KEY_BOOTSTRAP = "bootstrap"
-        private const val KEY_NODE_NAME = "node_name"
         private const val EXTRA_AUTO_START = "auto_start"
         private const val REFRESH_INTERVAL_MS = 750L
     }

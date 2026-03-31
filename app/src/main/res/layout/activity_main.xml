@@ -54,6 +54,27 @@
             android:hint="@string/node_name_input_hint"
             android:inputType="textNoSuggestions" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/console_url_input_label"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/consoleUrlInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/console_url_input_hint"
+            android:inputType="textUri" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openConsoleButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/open_console_button" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

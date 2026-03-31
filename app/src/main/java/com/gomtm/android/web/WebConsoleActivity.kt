@@ -1,0 +1,105 @@
+package com.gomtm.android.web
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.TextView
+import androidx.activity.addCallback
+import androidx.appcompat.app.AppCompatActivity
+import com.gomtm.android.BuildConfig
+import com.gomtm.android.R
+import com.google.android.material.button.MaterialButton
+
+class WebConsoleActivity : AppCompatActivity() {
+    private lateinit var webView: WebView
+    private lateinit var urlView: TextView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_web_console)
+
+        webView = findViewById(R.id.consoleWebView)
+        urlView = findViewById(R.id.consoleUrlValue)
+
+        val settingsStore = SharedPreferencesWebConsoleSettingsStore(this)
+        val fallbackUrl = settingsStore.load().consoleUrl
+        val launchUrl = intent.getStringExtra(EXTRA_CONSOLE_URL)?.takeIf { it.isNotBlank() }
+            ?: resolveWebConsoleLaunchUrl(fallbackUrl)
+
+        findViewById<MaterialButton>(R.id.consoleBackButton).setOnClickListener {
+            if (webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                finish()
+            }
+        }
+        findViewById<MaterialButton>(R.id.consoleReloadButton).setOnClickListener {
+            webView.reload()
+        }
+
+        onBackPressedDispatcher.addCallback(this) {
+            if (webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                finish()
+            }
+        }
+
+        configureWebView(settingsStore)
+
+        if (launchUrl == null) {
+            urlView.text = getString(R.string.console_url_missing)
+            return
+        }
+
+        urlView.text = launchUrl
+        webView.loadUrl(launchUrl)
+    }
+
+    override fun onDestroy() {
+        webView.removeJavascriptInterface(JS_BRIDGE_NAME)
+        webView.stopLoading()
+        webView.webChromeClient = null
+        webView.webViewClient = null
+        webView.destroy()
+        super.onDestroy()
+    }
+
+    private fun configureWebView(settingsStore: WebConsoleSettingsStore) {
+        val bridge = GomtmWebViewBridge(
+            runtimeHost = SwarmRuntimeBridgeHost(this),
+            settingsStore = settingsStore,
+            openAccessibilitySettings = defaultAccessibilitySettingsLauncher(this),
+        )
+        with(webView.settings) {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            builtInZoomControls = false
+            displayZoomControls = false
+            userAgentString = "$userAgentString GomtmAndroidHost/1.0"
+        }
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        webView.addJavascriptInterface(bridge, JS_BRIDGE_NAME)
+        webView.webChromeClient = WebChromeClient()
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                if (!url.isNullOrBlank()) {
+                    urlView.text = url
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val EXTRA_CONSOLE_URL = "console_url"
+        private const val JS_BRIDGE_NAME = "GomtmAndroid"
+
+        fun intent(context: Context, consoleUrl: String): Intent {
+            return Intent(context, WebConsoleActivity::class.java).putExtra(EXTRA_CONSOLE_URL, consoleUrl)
+        }
+    }
+}

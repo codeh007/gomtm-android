@@ -1,0 +1,12 @@
+{
+  "artifact": "gomtm-swarm-android.aar",
+  "version": "local-20260331-cloud-phone-p2p",
+  "commit": "b0ca0f0758073e134772825a44a05cf2cef68066",
+  "source_repo": "github.com/codeh007/gomtm",
+  "source_ref": "main",
+  "sha256": "7f17109b16eddf1e55caad5b9cfb2c437bfe4d1242b7b358fc6ef999bd89e46c",
+  "published_at": "2026-03-31T02:07:49Z",
+  "upstream_source_repo": "https://github.com/SagerNet/sing-box",
+  "upstream_source_ref": "v1.13.3",
+  "upstream_source_commit": "d3768cca3602c2949417fe767c1acd88d7f67698"
+}
