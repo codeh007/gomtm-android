@@ -236,28 +236,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isExternalAppNavigation(uri: Uri): Boolean {
-        return uri.scheme in setOf("intent", "mailto", "tel", "sms")
+        val scheme = uri.scheme ?: return false
+        return scheme !in setOf("http", "https", "javascript", "file", "data", "about", "blob", "content")
     }
 
     private fun openExternalNavigation(uri: Uri) {
-        val intent = runCatching {
-            if (uri.scheme == "intent") {
+        if (uri.scheme == "intent") {
+            val parsedIntent = runCatching {
                 Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
-            } else {
-                Intent(Intent.ACTION_VIEW, uri)
-            }
-        }.getOrNull() ?: return
+            }.getOrNull() ?: return
 
+            val fallbackUrl = parsedIntent.getStringExtra("browser_fallback_url")
+            if (!fallbackUrl.isNullOrBlank() && isRemoteNavigationUrl(fallbackUrl)) {
+                loadUrlInHost(fallbackUrl)
+                return
+            }
+
+            parsedIntent.component = null
+            parsedIntent.selector = null
+            parsedIntent.addCategory(Intent.CATEGORY_BROWSABLE)
+            openBrowsableIntent(parsedIntent)
+            return
+        }
+
+        openBrowsableIntent(
+            Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE),
+        )
+    }
+
+    private fun openBrowsableIntent(intent: Intent) {
         runCatching {
             startActivity(intent)
-        }.recoverCatching {
-            if (uri.scheme == "intent") {
-                intent.getStringExtra("browser_fallback_url")?.let { fallback ->
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallback)))
-                }
-            }
         }.getOrElse { error ->
-            if (error !is ActivityNotFoundException) {
+            if (error !is ActivityNotFoundException && error !is SecurityException) {
                 throw error
             }
         }
