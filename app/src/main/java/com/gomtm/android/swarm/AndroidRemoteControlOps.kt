@@ -30,6 +30,14 @@ class AndroidRemoteControlOps(
         return RemoteControlCommandResult.Success(payload)
     }
 
+    override fun screenStreamEnsure(): RemoteControlCommandResult<RemoteControlScreenStreamPayload> {
+        return AndroidScreenStreamHost.ensureStream(context)
+    }
+
+    override fun screenStreamStop(): RemoteControlCommandResult<RemoteControlActionPayload> {
+        return AndroidScreenStreamHost.stopStream(context)
+    }
+
     override fun inputTap(x: Int, y: Int): RemoteControlCommandResult<RemoteControlActionPayload> {
         return executeAction("tap") { GomtmAccessibilityService.performTap(x, y) }
     }

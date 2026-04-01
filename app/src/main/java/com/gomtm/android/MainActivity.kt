@@ -3,6 +3,7 @@ package com.gomtm.android
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -13,8 +14,10 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.addCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
+import com.gomtm.android.swarm.ScreenCaptureService
 import com.gomtm.android.swarm.SwarmRuntime
 import com.gomtm.android.web.GomtmHostBridge
 import com.gomtm.android.web.HOST_BRIDGE_NAME
@@ -53,6 +56,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hostBridge: GomtmHostBridge
     private lateinit var assetLoader: WebViewAssetLoader
     private var bridgeAttached = false
+    private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data ?: return@registerForActivityResult
+        if (result.resultCode == RESULT_OK) {
+            ScreenCaptureService.startProjection(this, result.resultCode, data)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             runtimeHost = SwarmRuntimeBridgeHost(this, swarmRuntime),
             settingsStore = settingsStore,
             launchAccessibilitySettings = defaultAccessibilitySettingsLauncher(this),
+            requestScreenCapturePermissionAction = { requestScreenCapturePermission() },
             navigateToUrl = { url -> runOnUiThread { loadUrlInHost(url) } },
         )
 
@@ -272,6 +282,12 @@ class MainActivity : AppCompatActivity() {
                 throw error
             }
         }
+    }
+
+    private fun requestScreenCapturePermission(): Boolean {
+        val projectionManager = getSystemService(MediaProjectionManager::class.java) ?: return false
+        screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent())
+        return true
     }
 
     companion object {

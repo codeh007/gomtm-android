@@ -9,16 +9,78 @@
 <body>
   <main class="page">
     <section class="hero card">
-      <p class="eyebrow">Single Web Host</p>
-      <h1>gomtm-android</h1>
-      <p class="lead">这个宿主现在只保留一个 WebView。这里负责节点接入、诊断和跳转到外部 gomtmui 页面。</p>
-      <p class="hint">打开外部页面后，使用系统返回键即可回到这里。</p>
+      <div class="hero-layout">
+        <div class="hero-copy">
+          <p class="eyebrow">Single Web Host</p>
+          <h1>gomtm-android</h1>
+          <div class="hero-points" aria-label="宿主页功能">
+            <div class="hero-point">
+              <span class="hero-point-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 10h8" />
+                  <path d="M10 6l4 4-4 4" />
+                  <path d="M4 4h4" />
+                </svg>
+              </span>
+              <span>接入节点</span>
+            </div>
+            <div class="hero-point">
+              <span class="hero-point-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 3l5 2v4c0 3.6-2.2 5.9-5 7-2.8-1.1-5-3.4-5-7V5l5-2z" />
+                  <path d="M8.2 10.2l1.2 1.2 2.5-2.7" />
+                </svg>
+              </span>
+              <span>权限设置</span>
+            </div>
+            <div class="hero-point">
+              <span class="hero-point-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="14" height="10" rx="2" />
+                  <path d="M8 16h4" />
+                  <path d="M10 14v2" />
+                </svg>
+              </span>
+              <span>打开控制台</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-status" aria-label="节点状态摘要">
+          <div class="hero-status-head">
+            <span class="label">当前节点状态</span>
+            <strong id="stateValue" class="status-pill" data-state-tone="neutral">-</strong>
+          </div>
+
+          <div class="hero-status-list">
+            <div class="hero-status-row">
+              <span class="label">Peer ID</span>
+              <strong id="peerValue">-</strong>
+            </div>
+            <div class="hero-status-row">
+              <span class="label">已连接 Bootstrap</span>
+              <strong id="bootstrapValue">-</strong>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="card">
       <div class="section-head">
         <h2>节点配置</h2>
-        <button id="saveButton" class="button ghost" type="button">保存配置</button>
+        <button id="saveButton" class="button ghost" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h9l3 3v9H4z" />
+                <path d="M7 4v5h6" />
+                <path d="M7 13h6" />
+              </svg>
+            </span>
+            <span class="button-text">保存</span>
+          </span>
+        </button>
       </div>
 
       <label class="field">
@@ -37,38 +99,81 @@
       </label>
 
       <div class="actions">
-        <button id="startButton" class="button primary" type="button">启动节点</button>
-        <button id="stopButton" class="button" type="button">停止节点</button>
-        <button id="openAccessibilityButton" class="button" type="button">打开无障碍设置</button>
-        <button id="openConsoleButton" class="button accent" type="button">打开 gomtmui</button>
+        <button id="startButton" class="button primary" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path d="M6 4.8v10.4c0 .5.5.8.9.6l7.5-5.2c.4-.3.4-.9 0-1.2L6.9 4.2c-.4-.2-.9.1-.9.6z" />
+              </svg>
+            </span>
+            <span class="button-text">启动</span>
+          </span>
+        </button>
+        <button id="stopButton" class="button" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <rect x="5" y="5" width="10" height="10" rx="2" />
+              </svg>
+            </span>
+            <span class="button-text">停止</span>
+          </span>
+        </button>
+        <button id="openAccessibilityButton" class="button" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="10" cy="4.5" r="1.5" />
+                <path d="M10 7v4" />
+                <path d="M6 9h8" />
+                <path d="M8 11l-2 5" />
+                <path d="M12 11l2 5" />
+              </svg>
+            </span>
+            <span class="button-text">无障碍</span>
+          </span>
+        </button>
+        <button id="requestScreenCaptureButton" class="button" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="14" height="10" rx="2" />
+                <path d="M8 8l4 2-4 2z" />
+              </svg>
+            </span>
+            <span class="button-text">截图权限</span>
+          </span>
+        </button>
+        <button id="openConsoleButton" class="button accent" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 6l-3 4 3 4" />
+                <path d="M11 14h5" />
+              </svg>
+            </span>
+            <span class="button-text">控制台</span>
+          </span>
+        </button>
       </div>
-    </section>
-
-    <section class="status-grid">
-      <article class="card metric">
-        <span class="label">运行状态</span>
-        <strong id="stateValue">-</strong>
-      </article>
-      <article class="card metric">
-        <span class="label">Peer ID</span>
-        <strong id="peerValue">-</strong>
-      </article>
-      <article class="card metric">
-        <span class="label">已连接 Bootstrap</span>
-        <strong id="bootstrapValue">-</strong>
-      </article>
-      <article class="card metric">
-        <span class="label">Bridge 类</span>
-        <strong id="bridgeValue">-</strong>
-      </article>
     </section>
 
     <section class="card">
       <div class="section-head">
-        <h2>权限状态</h2>
-        <button id="refreshButton" class="button ghost" type="button">刷新状态</button>
+        <h2>权限与诊断</h2>
+        <button id="refreshButton" class="button ghost" type="button">
+          <span class="button-inner">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15.5 7.5A6 6 0 1 0 16 10" />
+                <path d="M15 4v4h-4" />
+              </svg>
+            </span>
+            <span class="button-text">刷新</span>
+          </span>
+        </button>
       </div>
-      <div class="kv-list">
+      <div class="kv-list kv-list-triple">
         <div>
           <span class="label">无障碍</span>
           <strong id="accessibilityValue">-</strong>
@@ -76,6 +181,10 @@
         <div>
           <span class="label">截图</span>
           <strong id="screenCaptureValue">-</strong>
+        </div>
+        <div>
+          <span class="label">Bridge 类</span>
+          <strong id="bridgeValue">-</strong>
         </div>
       </div>
     </section>

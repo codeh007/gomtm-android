@@ -49,6 +49,7 @@ class GomtmHostBridge(
     private val runtimeHost: SwarmRuntimeHost,
     private val settingsStore: HostSettingsStore,
     private val launchAccessibilitySettings: () -> Unit,
+	private val requestScreenCapturePermissionAction: () -> Boolean,
     private val navigateToUrl: (String) -> Unit,
 ) {
     @JavascriptInterface
@@ -96,6 +97,11 @@ class GomtmHostBridge(
     fun openAccessibilitySettings(): Boolean {
         launchAccessibilitySettings()
         return true
+    }
+
+    @JavascriptInterface
+    fun requestScreenCapturePermission(): Boolean {
+		return requestScreenCapturePermissionAction()
     }
 
     @JavascriptInterface

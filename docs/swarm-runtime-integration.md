@@ -29,8 +29,9 @@ The metadata file must at least expose:
 - gomtm commit
 - gomtm source ref
 - AAR sha256
-- upstream sing-box repo/ref/commit
 - published timestamp
+
+The metadata file must not keep historical `sing-box` upstream provenance fields. The public app only consumes the current gomtm swarm runtime contract.
 
 ## Downstream rules in this repo
 

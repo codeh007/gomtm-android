@@ -30,6 +30,36 @@ data class RemoteControlActionPayload(
     val message: String? = null,
 )
 
+data class RemoteControlCapabilityState(
+    val state: String,
+    val reason: String? = null,
+)
+
+data class RemoteControlStreamResolvedTarget(
+    val kind: String,
+    val host: String,
+    val port: Int,
+    val protocolHint: String? = null,
+    val serviceHint: String? = null,
+)
+
+data class RemoteControlStreamChannelPayload(
+    val kind: String,
+    val framing: String,
+    val codec: String,
+    val width: Int,
+    val height: Int,
+    val rotation: Int,
+    val keyframeRequiredOnStart: Boolean,
+)
+
+data class RemoteControlScreenStreamPayload(
+    val status: String,
+    val resolved: RemoteControlStreamResolvedTarget,
+    val channel: RemoteControlStreamChannelPayload,
+    val lastError: String? = null,
+)
+
 data class RemoteControlPermissionState(
     val accessibility: String,
     val screenCapture: String,
@@ -47,6 +77,10 @@ sealed interface RemoteControlCommandResult<out T> {
 
 interface RemoteControlOps {
     fun screenSnapshot(format: String): RemoteControlCommandResult<RemoteControlScreenshotPayload>
+
+    fun screenStreamEnsure(): RemoteControlCommandResult<RemoteControlScreenStreamPayload>
+
+    fun screenStreamStop(): RemoteControlCommandResult<RemoteControlActionPayload>
 
     fun inputTap(x: Int, y: Int): RemoteControlCommandResult<RemoteControlActionPayload>
 
@@ -115,6 +149,16 @@ fun handleRemoteControlRequest(
 ): RemoteControlCommandResponse {
     return when (request.command) {
         "screen.snapshot" -> when (val result = ops.screenSnapshot(request.params["format"]?.toString().orEmpty().ifBlank { "png" })) {
+            is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())
+            is RemoteControlCommandResult.Error -> errorResponse(request.requestId, result)
+        }
+
+        "screen.stream.ensure" -> when (val result = ops.screenStreamEnsure()) {
+            is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())
+            is RemoteControlCommandResult.Error -> errorResponse(request.requestId, result)
+        }
+
+        "screen.stream.stop" -> when (val result = ops.screenStreamStop()) {
             is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())
             is RemoteControlCommandResult.Error -> errorResponse(request.requestId, result)
         }
@@ -220,4 +264,43 @@ private fun RemoteControlActionPayload.toJson(): String {
             }
         }
         .toString()
+}
+
+private fun RemoteControlScreenStreamPayload.toJson(): String {
+    return JSONObject()
+        .put("status", status)
+        .put("resolved", resolved.toJson())
+        .put("channel", channel.toJson())
+        .apply {
+            if (!lastError.isNullOrBlank()) {
+                put("last_error", lastError)
+            }
+        }
+        .toString()
+}
+
+private fun RemoteControlStreamResolvedTarget.toJson(): JSONObject {
+    return JSONObject()
+        .put("kind", kind)
+        .put("host", host)
+        .put("port", port)
+        .apply {
+            if (!protocolHint.isNullOrBlank()) {
+                put("protocol_hint", protocolHint)
+            }
+            if (!serviceHint.isNullOrBlank()) {
+                put("service_hint", serviceHint)
+            }
+        }
+}
+
+private fun RemoteControlStreamChannelPayload.toJson(): JSONObject {
+    return JSONObject()
+        .put("kind", kind)
+        .put("framing", framing)
+        .put("codec", codec)
+        .put("width", width)
+        .put("height", height)
+        .put("rotation", rotation)
+        .put("keyframe_required_on_start", keyframeRequiredOnStart)
 }

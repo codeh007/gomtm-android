@@ -73,10 +73,12 @@ class SwarmRuntimeTest {
 
         runtime.resolveRemoteControlResponse("{\"request_id\":\"req-1\",\"ok\":true}")
         runtime.setRemoteControlPermissionState("granted", "unsupported")
+        runtime.setRemoteControlStreamState("streaming", "")
 
         assertEquals("{\"request_id\":\"req-1\",\"ok\":true}", FakeNodeBridge.lastRemoteControlResponse)
         assertEquals("granted", FakeNodeBridge.lastAccessibilityPermission)
         assertEquals("unsupported", FakeNodeBridge.lastScreenCapturePermission)
+        assertEquals("streaming", FakeNodeBridge.lastScreenStreamState)
     }
 
     class FakeConfig {
@@ -95,6 +97,12 @@ class SwarmRuntimeTest {
 
             @JvmField
             var lastScreenCapturePermission: String = ""
+
+            @JvmField
+            var lastScreenStreamState: String = ""
+
+            @JvmField
+            var lastScreenStreamReason: String = ""
 
             @JvmStatic
             fun startNode(@Suppress("UNUSED_PARAMETER") baseDir: String, @Suppress("UNUSED_PARAMETER") config: FakeConfig) = Unit
@@ -136,6 +144,12 @@ class SwarmRuntimeTest {
             fun setRemoteControlPermissionState(accessibility: String, screenCapture: String) {
                 lastAccessibilityPermission = accessibility
                 lastScreenCapturePermission = screenCapture
+            }
+
+            @JvmStatic
+            fun setRemoteControlStreamState(state: String, reason: String) {
+                lastScreenStreamState = state
+                lastScreenStreamReason = reason
             }
         }
     }

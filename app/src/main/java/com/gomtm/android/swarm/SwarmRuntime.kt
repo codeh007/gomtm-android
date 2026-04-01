@@ -109,16 +109,32 @@ class SwarmRuntime(
         )
     }
 
+    fun setRemoteControlStreamState(state: String, reason: String) {
+        val bridge = try {
+            resolveBridgeClass()
+        } catch (_: ReflectiveOperationException) {
+            return
+        }
+        invokeOptionalByNames(
+            bridge = bridge,
+            methodNames = listOf("SetRemoteControlStreamState", "setRemoteControlStreamState"),
+            args = arrayOf(state, reason),
+            parameterTypes = arrayOf(String::class.java, String::class.java),
+        )
+    }
+
     fun remoteControlPermissionState(context: Context): RemoteControlPermissionState {
-        return deriveRemoteControlPermissionState(
-            accessibilityEnabled = GomtmAccessibilityService.isEnabled(context),
-            screenshotSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R,
+        return RemoteControlPermissionState(
+            accessibility = if (GomtmAccessibilityService.isEnabled(context)) "granted" else "not_granted",
+            screenCapture = AndroidScreenStreamHost.currentPermissionState(context),
         )
     }
 
     fun processRemoteControlTick(context: Context, timeoutMs: Int = 0) {
         val permissionState = remoteControlPermissionState(context)
         setRemoteControlPermissionState(permissionState.accessibility, permissionState.screenCapture)
+        val streamState = AndroidScreenStreamHost.currentCapabilityState(context)
+        setRemoteControlStreamState(streamState.state, streamState.reason.orEmpty())
 
         val request = parseRemoteControlRequest(pollRemoteControlRequest(timeoutMs)) ?: return
         val response = handleRemoteControlRequest(request, AndroidRemoteControlOps(context))

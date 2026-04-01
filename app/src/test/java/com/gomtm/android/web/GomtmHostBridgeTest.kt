@@ -24,6 +24,7 @@ class GomtmHostBridgeTest {
             runtimeHost = runtime,
             settingsStore = settingsStore,
             launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
             navigateToUrl = {},
         )
 
@@ -44,6 +45,7 @@ class GomtmHostBridgeTest {
             runtimeHost = runtime,
             settingsStore = settingsStore,
             launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
             navigateToUrl = {},
         )
 
@@ -70,6 +72,7 @@ class GomtmHostBridgeTest {
             runtimeHost = FakeRuntimeHost(),
             settingsStore = settingsStore,
             launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
             navigateToUrl = {},
         )
 
@@ -104,6 +107,7 @@ class GomtmHostBridgeTest {
             runtimeHost = FakeRuntimeHost(),
             settingsStore = InMemorySettingsStore(HostSettings()),
             launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
             navigateToUrl = { navigatedTo = it },
         )
 
@@ -121,6 +125,7 @@ class GomtmHostBridgeTest {
             runtimeHost = FakeRuntimeHost(),
             settingsStore = InMemorySettingsStore(HostSettings()),
             launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
             navigateToUrl = { navigated = true },
         )
 
@@ -138,11 +143,30 @@ class GomtmHostBridgeTest {
             runtimeHost = FakeRuntimeHost(),
             settingsStore = InMemorySettingsStore(HostSettings()),
             launchAccessibilitySettings = { opened = true },
+            requestScreenCapturePermissionAction = { true },
             navigateToUrl = {},
         )
 
         assertTrue(bridge.openAccessibilitySettings())
         assertTrue(opened)
+    }
+
+    @Test
+    fun delegatesScreenCapturePermissionRequestToHostCallback() {
+        var requested = false
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = InMemorySettingsStore(HostSettings()),
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = {
+                requested = true
+                true
+            },
+            navigateToUrl = {},
+        )
+
+        assertTrue(bridge.requestScreenCapturePermission())
+        assertTrue(requested)
     }
 
     private class FakeRuntimeHost : SwarmRuntimeHost {

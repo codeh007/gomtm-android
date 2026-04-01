@@ -84,12 +84,36 @@
     }
   }
 
+  function stateTone(state, hasError) {
+    if (hasError) {
+      return 'error'
+    }
+
+    const normalized = (state || '').trim().toLowerCase()
+    if (['connected', 'registered', 'ready'].includes(normalized)) {
+      return 'connected'
+    }
+    if (['starting', 'connecting'].includes(normalized)) {
+      return 'starting'
+    }
+    if (['error', 'failed'].includes(normalized)) {
+      return 'error'
+    }
+    return 'neutral'
+  }
+
   function renderSnapshot(snapshot, options) {
     const forceSync = options && options.forceSync
     syncForm(snapshot, forceSync)
     appendLogs(snapshot?.runtime?.recent_logs)
 
-    document.getElementById('stateValue').textContent = snapshot?.runtime?.state || 'Unknown'
+    const actionError = snapshot?.runtime?.action_error || ''
+    const runtimeError = snapshot?.runtime?.last_error || ''
+    const nextState = snapshot?.runtime?.state || 'Unknown'
+    const stateElement = document.getElementById('stateValue')
+
+    stateElement.textContent = nextState
+    stateElement.dataset.stateTone = stateTone(nextState, Boolean(actionError || runtimeError))
     document.getElementById('peerValue').textContent = snapshot?.runtime?.peer_id || 'Not available'
     document.getElementById('bootstrapValue').textContent = snapshot?.runtime?.bootstrap_address || 'Not available'
     document.getElementById('bridgeValue').textContent = snapshot?.runtime?.bridge_class_name || 'Not available'
@@ -97,8 +121,6 @@
     document.getElementById('screenCaptureValue').textContent = snapshot?.runtime?.permissions?.screen_capture || 'unknown'
     setText('peersValue', renderPeers(snapshot?.runtime?.discovered_peers || []))
 
-    const actionError = snapshot?.runtime?.action_error || ''
-    const runtimeError = snapshot?.runtime?.last_error || ''
     const errorText = actionError || runtimeError || 'None'
     setText('errorValue', errorText, errorText === 'None' ? '' : 'error')
     setText('logsValue', logState.join('\n\n') || 'No runtime logs yet.')
@@ -153,6 +175,10 @@
 
     document.getElementById('openAccessibilityButton').addEventListener('click', () => {
       withBridge((host) => host.openAccessibilitySettings())
+    })
+
+    document.getElementById('requestScreenCaptureButton').addEventListener('click', () => {
+      withBridge((host) => host.requestScreenCapturePermission())
     })
 
     document.getElementById('openConsoleButton').addEventListener('click', () => {

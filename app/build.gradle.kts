@@ -39,6 +39,22 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    // 当前公开分发的 app 只是 WebView 宿主，优先压缩 native libs，且只产出主流 arm64 包，避免把四个 ABI 的 libgojni.so 全塞进同一个下载 APK。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a")
+            isUniversalApk = false
+        }
+    }
 }
 
 dependencies {
