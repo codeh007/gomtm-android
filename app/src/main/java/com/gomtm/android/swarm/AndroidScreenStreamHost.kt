@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 import android.content.Context
 import android.content.Intent

@@ -1,4 +1,4 @@
-package com.gomtm.android
+package com.gomtm.swarm
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -17,15 +17,15 @@ import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
-import com.gomtm.android.swarm.ScreenCaptureService
-import com.gomtm.android.swarm.SwarmRuntime
-import com.gomtm.android.web.GomtmHostBridge
-import com.gomtm.android.web.HOST_BRIDGE_NAME
-import com.gomtm.android.web.HostSettingsStore
-import com.gomtm.android.web.SharedPreferencesHostSettingsStore
-import com.gomtm.android.web.SwarmRuntimeBridgeHost
-import com.gomtm.android.web.defaultAccessibilitySettingsLauncher
-import com.gomtm.android.web.toSwarmNodeConfig
+import com.gomtm.swarm.swarm.ScreenCaptureService
+import com.gomtm.swarm.swarm.SwarmRuntime
+import com.gomtm.swarm.web.GomtmHostBridge
+import com.gomtm.swarm.web.HOST_BRIDGE_NAME
+import com.gomtm.swarm.web.HostSettingsStore
+import com.gomtm.swarm.web.SharedPreferencesHostSettingsStore
+import com.gomtm.swarm.web.SwarmRuntimeBridgeHost
+import com.gomtm.swarm.web.defaultAccessibilitySettingsLauncher
+import com.gomtm.swarm.web.toSwarmNodeConfig
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             allowFileAccess = false
             allowContentAccess = false
-            userAgentString = "$userAgentString GomtmAndroidHost/2.0"
+            userAgentString = "$userAgentString GomtmSwarmHost/2.0"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         webView.webChromeClient = WebChromeClient()

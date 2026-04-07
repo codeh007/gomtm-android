@@ -2,15 +2,13 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'app/libs/gomtm-swarm-android.json'
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Optional release tag override
-        required: false
+        description: Semantic version tag to publish, for example v0.4.0
+        required: true
         type: string
 
 concurrency:
@@ -40,11 +38,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          release_tag="${{ inputs.release_tag }}"
-          if [[ -z "${release_tag}" ]]; then
-            release_tag="${GOMTM_SWARM_AAR_VERSION}"
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          else
+            release_tag="${{ inputs.release_tag }}"
           fi
-          test -n "${release_tag}" || { echo "Missing release tag and pinned gomtm swarm version." >&2; exit 1; }
+          test -n "${release_tag}" || { echo "Missing release tag." >&2; exit 1; }
+          case "${release_tag}" in
+            v*) ;;
+            *)
+              echo "release_tag must start with v" >&2
+              exit 1
+              ;;
+          esac
           echo "RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
 
       - name: Write provenance
@@ -64,7 +70,7 @@ jobs:
               'release_tag': os.environ['RELEASE_TAG'],
               'git_commit': os.environ['GITHUB_SHA'],
           }
-          Path('dist/gomtm-android-provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
+          Path('dist/gomtm-swarm-provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
           PY
           ls -lh app/libs dist
 
@@ -97,27 +103,34 @@ jobs:
       - name: Assemble installable debug APK
         run: ./gradlew --no-daemon assembleDebug
 
-      - name: Record APK variant
+      - name: Prepare named release assets
         shell: bash
         run: |
           python - <<'PY'
           import json
+          import shutil
           from pathlib import Path
+
           output_metadata = json.loads(Path('app/build/outputs/apk/debug/output-metadata.json').read_text())
           output_file = output_metadata['elements'][0]['outputFile']
-          provenance = json.loads(Path('dist/gomtm-android-provenance.json').read_text())
+          source = Path('app/build/outputs/apk/debug') / output_file
+          target = Path('dist/gomtm-swarm-arm64-v8a-debug.apk')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(source, target)
+
+          provenance = json.loads(Path('dist/gomtm-swarm-provenance.json').read_text())
           provenance['apk_variant'] = 'debug'
-          provenance['apk_asset_name'] = output_file
-          Path('dist/gomtm-android-provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
+          provenance['apk_asset_name'] = target.name
+          Path('dist/gomtm-swarm-provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
           PY
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_TAG }}
+          name: gomtm-swarm ${{ env.RELEASE_TAG }}
           body: |
-            gomtm-android installable bootstrap APK built from a pinned gomtm swarm AAR.
+            gomtm-swarm installable Android app built from a pinned gomtm swarm AAR.
 
             APK variant:
             - debug (installable on unsigned/bootstrap test devices)
@@ -127,6 +140,6 @@ jobs:
             - url: ${{ env.GOMTM_SWARM_AAR_URL }}
             - sha256: ${{ env.GOMTM_SWARM_AAR_SHA256 }}
           files: |
-            app/build/outputs/apk/debug/*.apk
-            dist/gomtm-android-provenance.json
+            dist/gomtm-swarm-arm64-v8a-debug.apk
+            dist/gomtm-swarm-provenance.json
           fail_on_unmatched_files: true

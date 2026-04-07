@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

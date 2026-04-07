@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.gomtm.android"
+    namespace = "com.gomtm.swarm"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.gomtm.android"
+        applicationId = "com.gomtm.swarm"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

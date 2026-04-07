@@ -1,4 +1,4 @@
-package com.gomtm.android.web
+package com.gomtm.swarm.web
 
 import java.nio.file.Files
 import java.nio.file.Path

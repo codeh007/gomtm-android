@@ -1,19 +1,19 @@
-package com.gomtm.android.web
+package com.gomtm.swarm.web
 
 import android.content.Context
 import android.provider.Settings
 import android.webkit.JavascriptInterface
-import com.gomtm.android.swarm.DiscoveredPeer
-import com.gomtm.android.swarm.RemoteControlPermissionState
-import com.gomtm.android.swarm.SwarmRuntime
-import com.gomtm.android.swarm.SwarmStatus
+import com.gomtm.swarm.swarm.DiscoveredPeer
+import com.gomtm.swarm.swarm.RemoteControlPermissionState
+import com.gomtm.swarm.swarm.SwarmRuntime
+import com.gomtm.swarm.swarm.SwarmStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
 const val HOST_BRIDGE_NAME = "GomtmAndroid"
 
 interface SwarmRuntimeHost {
-    fun start(config: com.gomtm.android.swarm.SwarmNodeConfig)
+    fun start(config: com.gomtm.swarm.swarm.SwarmNodeConfig)
 
     fun stop()
 
@@ -28,7 +28,7 @@ class SwarmRuntimeBridgeHost(
     private val context: Context,
     private val runtime: SwarmRuntime = SwarmRuntime(),
 ) : SwarmRuntimeHost {
-    override fun start(config: com.gomtm.android.swarm.SwarmNodeConfig) {
+    override fun start(config: com.gomtm.swarm.swarm.SwarmNodeConfig) {
         runtime.start(context, config)
     }
 

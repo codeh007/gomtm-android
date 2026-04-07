@@ -1,7 +1,7 @@
-package com.gomtm.android.web
+package com.gomtm.swarm.web
 
 import android.content.Context
-import com.gomtm.android.swarm.SwarmNodeConfig
+import com.gomtm.swarm.swarm.SwarmNodeConfig
 import java.net.URI
 
 data class HostSettings(
@@ -39,7 +39,7 @@ class SharedPreferencesHostSettingsStore(
     }
 
     companion object {
-        private const val PREFS_NAME = "gomtm-android"
+        private const val PREFS_NAME = "gomtm-swarm"
         private const val KEY_BOOTSTRAP = "bootstrap"
         private const val KEY_NODE_NAME = "node_name"
         private const val KEY_CONSOLE_URL = "console_url"

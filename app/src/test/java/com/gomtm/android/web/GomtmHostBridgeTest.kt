@@ -1,9 +1,9 @@
-package com.gomtm.android.web
+package com.gomtm.swarm.web
 
-import com.gomtm.android.swarm.DiscoveredPeer
-import com.gomtm.android.swarm.RemoteControlPermissionState
-import com.gomtm.android.swarm.SwarmNodeConfig
-import com.gomtm.android.swarm.SwarmStatus
+import com.gomtm.swarm.swarm.DiscoveredPeer
+import com.gomtm.swarm.swarm.RemoteControlPermissionState
+import com.gomtm.swarm.swarm.SwarmNodeConfig
+import com.gomtm.swarm.swarm.SwarmStatus
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

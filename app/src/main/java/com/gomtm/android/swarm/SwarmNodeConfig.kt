@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 import android.os.Build
 import java.util.Locale
