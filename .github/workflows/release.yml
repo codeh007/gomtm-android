@@ -103,9 +103,11 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
+          output_metadata = json.loads(Path('app/build/outputs/apk/debug/output-metadata.json').read_text())
+          output_file = output_metadata['elements'][0]['outputFile']
           provenance = json.loads(Path('dist/gomtm-android-provenance.json').read_text())
           provenance['apk_variant'] = 'debug'
-          provenance['apk_asset_name'] = 'app-debug.apk'
+          provenance['apk_asset_name'] = output_file
           Path('dist/gomtm-android-provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
           PY
 
@@ -125,6 +127,6 @@ jobs:
             - url: ${{ env.GOMTM_SWARM_AAR_URL }}
             - sha256: ${{ env.GOMTM_SWARM_AAR_SHA256 }}
           files: |
-            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/*.apk
             dist/gomtm-android-provenance.json
           fail_on_unmatched_files: true
