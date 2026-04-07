@@ -8,7 +8,8 @@ The public Android app host is no longer treated as a generic host shell.
 
 Current contract:
 
-- GitHub Actions downloads a specific `gomtm-swarm-android.aar`
+- GitHub Actions reads the committed pin manifest `app/libs/gomtm-swarm-android.json`
+- GitHub Actions downloads the specific `gomtm-swarm-android.aar` referenced by that manifest
 - GitHub Actions verifies its SHA256 before Gradle runs
 - the app binds to the current gomtm node runtime surface
 - the app boots into an embedded HTML+JS bootstrap page inside a single WebView host
@@ -23,15 +24,17 @@ Current contract:
 - `gomtm-swarm-android.aar`
 - `gomtm-swarm-android.json`
 
-The metadata file must at least expose:
+The pinned manifest in this repo must at least expose:
 
 - gomtm version
 - gomtm commit
 - gomtm source ref
 - AAR sha256
 - published timestamp
+- GitHub release AAR asset URL
+- GitHub release metadata asset URL
 
-The metadata file must not keep historical `sing-box` upstream provenance fields. The public app only consumes the current gomtm swarm runtime contract.
+The public app only consumes the current gomtm swarm runtime contract. Extra provenance fields are allowed, but the release trigger must depend only on the current gomtm swarm artifact identity.
 
 ## Downstream rules in this repo
 
@@ -43,12 +46,14 @@ This repo must not:
 
 This repo must:
 
-1. pin `gomtm_swarm_aar_url`
-2. pin `gomtm_swarm_aar_version`
-3. pin `gomtm_swarm_aar_sha256`
-4. download the AAR into `app/libs/`
-5. validate the checksum
-6. run Gradle only after the AAR contract is satisfied
+1. commit `app/libs/gomtm-swarm-android.json`
+2. pin `aar_url`
+3. pin `metadata_url`
+4. pin `version`
+5. pin `sha256`
+6. download the AAR into `app/libs/`
+7. validate the checksum
+8. run Gradle only after the AAR contract is satisfied
 
 ## UI contract
 

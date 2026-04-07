@@ -1,19 +1,44 @@
 name: Setup pinned gomtm swarm AAR
-description: Restore or download the pinned gomtm swarm AAR and validate its metadata contract.
+description: Read the committed pin manifest, download the pinned gomtm swarm AAR, and validate its metadata contract.
 
 runs:
   using: composite
   steps:
-    - name: Validate gomtm swarm AAR contract inputs
+    - name: Load committed gomtm swarm pin manifest
       shell: bash
       run: |
         set -euo pipefail
-        for key in GOMTM_SWARM_AAR_URL GOMTM_SWARM_METADATA_URL GOMTM_SWARM_AAR_VERSION GOMTM_SWARM_AAR_SHA256 GOMTM_SWARM_AAR_NAME; do
-          if [[ -z "${!key:-}" ]]; then
-            echo "Missing ${key}" >&2
-            exit 1
-          fi
-        done
+        python - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        pin_path = Path('app/libs/gomtm-swarm-android.json')
+        if not pin_path.is_file():
+            raise SystemExit(f"Missing {pin_path}")
+
+        pin = json.loads(pin_path.read_text())
+        required = {
+            'artifact': 'gomtm-swarm-android.aar',
+            'version': None,
+            'sha256': None,
+            'aar_url': None,
+            'metadata_url': None,
+        }
+        for key, expected in required.items():
+            value = pin.get(key)
+            if not value:
+                raise SystemExit(f"Pin manifest missing {key}")
+            if expected is not None and value != expected:
+                raise SystemExit(f"Pin manifest {key} mismatch: {value} != {expected}")
+
+        with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
+            env_file.write(f"GOMTM_SWARM_AAR_NAME={pin['artifact']}\n")
+            env_file.write(f"GOMTM_SWARM_AAR_VERSION={pin['version']}\n")
+            env_file.write(f"GOMTM_SWARM_AAR_SHA256={pin['sha256']}\n")
+            env_file.write(f"GOMTM_SWARM_AAR_URL={pin['aar_url']}\n")
+            env_file.write(f"GOMTM_SWARM_METADATA_URL={pin['metadata_url']}\n")
+        PY
 
     - name: Prepare AAR directories
       shell: bash
@@ -26,7 +51,7 @@ runs:
         path: |
           app/libs/gomtm-swarm-android.aar
           dist/gomtm-swarm-android.json
-        key: gomtm-swarm-aar-${{ runner.os }}-${{ env.GOMTM_SWARM_AAR_VERSION }}-${{ env.GOMTM_SWARM_AAR_SHA256 }}
+        key: gomtm-swarm-aar-${{ runner.os }}-${{ hashFiles('app/libs/gomtm-swarm-android.json') }}
 
     - name: Download pinned gomtm swarm AAR and metadata
       if: steps.aar-cache.outputs.cache-hit != 'true'

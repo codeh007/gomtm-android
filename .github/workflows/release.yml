@@ -2,28 +2,14 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'app/libs/gomtm-swarm-android.json'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag to create when manually dispatching (must start with v)
-        required: false
-        type: string
-      gomtm_swarm_aar_url:
-        description: GitHub API asset URL for gomtm-swarm-android.aar
-        required: false
-        type: string
-      gomtm_swarm_metadata_url:
-        description: GitHub API asset URL for gomtm-swarm-android.json
-        required: false
-        type: string
-      gomtm_swarm_aar_version:
-        description: Version string for the pinned gomtm swarm AAR
-        required: false
-        type: string
-      gomtm_swarm_aar_sha256:
-        description: SHA256 for the pinned gomtm swarm AAR
+        description: Optional release tag override
         required: false
         type: string
 
@@ -35,12 +21,6 @@ permissions:
   contents: write
 
 env:
-  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
-  GOMTM_SWARM_AAR_URL: ${{ inputs.gomtm_swarm_aar_url || vars.GOMTM_SWARM_AAR_URL }}
-  GOMTM_SWARM_METADATA_URL: ${{ inputs.gomtm_swarm_metadata_url || vars.GOMTM_SWARM_METADATA_URL }}
-  GOMTM_SWARM_AAR_VERSION: ${{ inputs.gomtm_swarm_aar_version || vars.GOMTM_SWARM_AAR_VERSION }}
-  GOMTM_SWARM_AAR_SHA256: ${{ inputs.gomtm_swarm_aar_sha256 || vars.GOMTM_SWARM_AAR_SHA256 }}
-  GOMTM_SWARM_AAR_NAME: gomtm-swarm-android.aar
   GH_FALLBACK_TOKEN: ${{ github.token }}
   GOMTM_RELEASE_TOKEN: ${{ secrets.GOMTM_GH_PAT }}
 
@@ -53,21 +33,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate release tag
+      - name: Prepare pinned gomtm swarm AAR
+        uses: ./.github/actions/setup-pinned-gomtm-swarm-aar
+
+      - name: Resolve release tag
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${RELEASE_TAG}" || { echo "Missing RELEASE_TAG. Push a v* tag or provide workflow_dispatch input release_tag."; exit 1; }
-          case "${RELEASE_TAG}" in
-            v*) ;;
-            *)
-              echo "RELEASE_TAG must start with v" >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Prepare pinned gomtm swarm AAR
-        uses: ./.github/actions/setup-pinned-gomtm-swarm-aar
+          release_tag="${{ inputs.release_tag }}"
+          if [[ -z "${release_tag}" ]]; then
+            release_tag="${GOMTM_SWARM_AAR_VERSION}"
+          fi
+          test -n "${release_tag}" || { echo "Missing release tag and pinned gomtm swarm version." >&2; exit 1; }
+          echo "RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
 
       - name: Write provenance
         shell: bash
@@ -97,7 +75,11 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: yes | sdkmanager --licenses >/dev/null
 
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"

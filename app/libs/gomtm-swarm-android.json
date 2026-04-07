@@ -1,9 +1,14 @@
 {
   "artifact": "gomtm-swarm-android.aar",
-  "version": "local-20260401-aar-producer-boundary",
-  "commit": "d88ec68ba2eb77c19f308e2299b2ca11ffefa5f6",
+  "version": "android-swarm-20260328-2232",
+  "commit": "12e638af450371e59fdd626720be1840bb7f2bbd",
   "source_repo": "github.com/codeh007/gomtm",
   "source_ref": "main",
-  "sha256": "f3522a0ba31d9e0784e0600c66846cd78b10c8024c6b3b5d6f09f9ce1f5beeb5",
-  "published_at": "2026-04-01T04:31:08Z"
+  "sha256": "d1bce8ab48960b6c5c92423c7c19aaeae3e97b44c45722aa892fa543a4ddd56d",
+  "published_at": "2026-03-28T14:39:58Z",
+  "aar_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/383556543",
+  "metadata_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/383556542",
+  "upstream_source_repo": "https://github.com/SagerNet/sing-box",
+  "upstream_source_ref": "v1.13.3",
+  "upstream_source_commit": "d3768cca3602c2949417fe767c1acd88d7f67698"
 }

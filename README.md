@@ -22,6 +22,7 @@ The active architecture is:
 - GitHub Actions CI and release automation
 - APK publication
 - consuming a **published, pinned** `gomtm-swarm-android.aar`
+- using the committed pin manifest `app/libs/gomtm-swarm-android.json` as the release trigger surface
 
 ## What this repo is not responsible for
 
@@ -50,6 +51,19 @@ The app consumes a published `gomtm-swarm-android.aar` and drives the current no
 - `drainLogs()`
 
 The UI is expected to show real runtime data, not a host-shell placeholder.
+
+## Release trigger
+
+`gomtm-android` no longer relies on repository Actions variables to discover the next swarm runtime.
+
+The committed file `app/libs/gomtm-swarm-android.json` now pins:
+
+- the gomtm swarm AAR version
+- the GitHub release asset URL for the AAR asset
+- the GitHub release asset URL for the metadata asset
+- the expected SHA256
+
+Updating that file on `main` is the canonical way to trigger a fresh APK release from a newly published gomtm AAR.
 
 ## Host shell shape
 
