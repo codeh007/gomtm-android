@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
@@ -56,6 +57,9 @@ class GomtmAccessibilityService : AccessibilityService() {
         }
 
         fun captureRemoteControlScreenshot(): RemoteControlScreenshotPayload? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                return null
+            }
             return instance?.captureRemoteControlScreenshotInternal()
         }
     }
@@ -145,10 +149,8 @@ class GomtmAccessibilityService : AccessibilityService() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun captureRemoteControlScreenshotInternal(): RemoteControlScreenshotPayload? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            return null
-        }
         val payloadRef = AtomicReference<RemoteControlScreenshotPayload?>()
         val latch = CountDownLatch(1)
         takeScreenshot(
