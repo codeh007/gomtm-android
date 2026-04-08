@@ -6,4 +6,11 @@
     <color name="text_primary">#161616</color>
     <color name="text_secondary">#4D5358</color>
     <color name="text_muted">#6F6F6F</color>
+    <color name="gomtm_outline_variant">#D6DEEA</color>
+    <color name="gomtm_status_running_bg">#DFF6EA</color>
+    <color name="gomtm_status_running_text">#0A6D45</color>
+    <color name="gomtm_status_starting_bg">#FFF1DB</color>
+    <color name="gomtm_status_starting_text">#9B5D00</color>
+    <color name="gomtm_status_stopped_bg">#E8EEF7</color>
+    <color name="gomtm_status_stopped_text">#3A4B63</color>
 </resources>

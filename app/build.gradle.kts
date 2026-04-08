@@ -11,8 +11,8 @@ android {
         applicationId = "com.gomtm.swarm"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -40,7 +40,7 @@ android {
         buildConfig = true
     }
 
-    // 当前公开分发的 app 只是 WebView 宿主，优先压缩 native libs，且只产出主流 arm64 包，避免把四个 ABI 的 libgojni.so 全塞进同一个下载 APK。
+    // 当前公开分发的 app 是最小 Android node shell，优先压缩 native libs，且只产出主流 arm64 包，避免把四个 ABI 的 libgojni.so 全塞进同一个下载 APK。
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -64,8 +64,6 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.webkit)
-
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.test.ext.junit)

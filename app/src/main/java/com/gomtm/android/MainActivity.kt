@@ -1,41 +1,19 @@
 package com.gomtm.swarm
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Bitmap
-import android.media.projection.MediaProjectionManager
-import android.net.Uri
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.webkit.CookieManager
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.addCallback
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.TextView
+import androidx.annotation.ColorRes
+import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.webkit.WebViewAssetLoader
-import com.gomtm.swarm.swarm.ScreenCaptureService
+import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
+import com.gomtm.swarm.swarm.SwarmNodeConfig
 import com.gomtm.swarm.swarm.SwarmRuntime
-import com.gomtm.swarm.web.GomtmHostBridge
-import com.gomtm.swarm.web.EMBEDDED_CONSOLE_ORIGIN
-import com.gomtm.swarm.web.HOST_BRIDGE_NAME
-import com.gomtm.swarm.web.HostSettingsStore
-import com.gomtm.swarm.web.SharedPreferencesHostSettingsStore
-import com.gomtm.swarm.web.SwarmRuntimeBridgeHost
-import com.gomtm.swarm.web.defaultAccessibilitySettingsLauncher
-import com.gomtm.swarm.web.toSwarmNodeConfig
-import com.gomtm.swarm.web.isEmbeddedConsoleUrl
-import com.gomtm.swarm.web.resolveHostNavigationUrl
-import com.gomtm.swarm.web.resolveEmbeddedConsoleProxyTarget
-import com.gomtm.swarm.web.rewriteEmbeddedConsoleLocation
-import com.gomtm.swarm.web.toSwarmNodeConfig
-import java.io.ByteArrayInputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import com.gomtm.swarm.swarm.SwarmStatus
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -44,399 +22,257 @@ class MainActivity : AppCompatActivity() {
     private val refreshHandler = Handler(Looper.getMainLooper())
     private val backgroundWorker = Executors.newSingleThreadExecutor()
     private val remoteControlTickRunning = AtomicBoolean(false)
-    private val activeRuntimeStates = setOf("Starting", "Connecting", "Connected", "Registered")
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
-            if (remoteControlTickRunning.compareAndSet(false, true)) {
+            val snapshot = swarmRuntime.probe()
+            if (isRuntimeActiveState(snapshot.state) && remoteControlTickRunning.compareAndSet(false, true)) {
                 backgroundWorker.execute {
                     try {
                         swarmRuntime.processRemoteControlTick(this@MainActivity, timeoutMs = 0)
                     } catch (_: Throwable) {
                     } finally {
                         remoteControlTickRunning.set(false)
+                        runOnUiThread { refreshServiceState() }
                     }
                 }
+            } else {
+                refreshServiceState(snapshot)
             }
             refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
         }
     }
 
-    private lateinit var webView: WebView
-    private lateinit var settingsStore: HostSettingsStore
-    private lateinit var hostBridge: GomtmHostBridge
-    private lateinit var assetLoader: WebViewAssetLoader
-    private var bridgeAttached = false
-    private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val data = result.data ?: return@registerForActivityResult
-        if (result.resultCode == RESULT_OK) {
-            ScreenCaptureService.startProjection(this, result.resultCode, data)
-        }
-    }
+    private lateinit var serviceStatusValue: TextView
+    private lateinit var serviceStatusDetail: TextView
+    private lateinit var versionValue: TextView
+    private lateinit var serviceToggleButton: MaterialButton
+
+    private var isAwaitingRuntimeStart = false
+    private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        webView = findViewById(R.id.hostWebView)
-        settingsStore = SharedPreferencesHostSettingsStore(this)
-        assetLoader = WebViewAssetLoader.Builder()
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
-            .build()
-        hostBridge = GomtmHostBridge(
-            runtimeHost = SwarmRuntimeBridgeHost(this, swarmRuntime),
-            settingsStore = settingsStore,
-            launchAccessibilitySettings = defaultAccessibilitySettingsLauncher(this),
-            requestScreenCapturePermissionAction = { requestScreenCapturePermission() },
-            navigateToUrl = { url -> runOnUiThread { loadUrlInHost(url) } },
-        )
+        serviceStatusValue = findViewById(R.id.serviceStatusValue)
+        serviceStatusDetail = findViewById(R.id.serviceStatusDetail)
+        versionValue = findViewById(R.id.surfaceVersion)
+        serviceToggleButton = findViewById(R.id.serviceToggleButton)
 
-        configureWebView()
-        onBackPressedDispatcher.addCallback(this) {
-            if (!goBackInHost()) {
-                finish()
-            }
-        }
+        versionValue.text = getString(R.string.surface_version_format, BuildConfig.VERSION_NAME)
+        serviceToggleButton.setOnClickListener { toggleService() }
 
         applyIntentOverrides(intent)
-        loadUrlInHost(GomtmHostBridge.LOCAL_BOOTSTRAP_URL)
-        maybeAutoStartFromIntent(intent)
+        refreshServiceState()
+        requestRuntimeStartIfNeeded()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         applyIntentOverrides(intent)
-        loadUrlInHost(GomtmHostBridge.LOCAL_BOOTSTRAP_URL)
-        maybeAutoStartFromIntent(intent)
+        requestRuntimeStartIfNeeded(forceRestart = true)
     }
 
-    override fun onResume() {
-        super.onResume()
+    override fun onStart() {
+        super.onStart()
         refreshHandler.removeCallbacks(autoRefreshRunnable)
         refreshHandler.post(autoRefreshRunnable)
     }
 
-    override fun onPause() {
+    override fun onStop() {
         refreshHandler.removeCallbacks(autoRefreshRunnable)
-        super.onPause()
+        super.onStop()
     }
 
     override fun onDestroy() {
         refreshHandler.removeCallbacks(autoRefreshRunnable)
-        if (this::webView.isInitialized) {
-            webView.removeJavascriptInterface(HOST_BRIDGE_NAME)
-            webView.stopLoading()
-            webView.webChromeClient = null
-            webView.webViewClient = WebViewClient()
-            webView.destroy()
-        }
         backgroundWorker.shutdownNow()
         super.onDestroy()
     }
 
-    private fun configureWebView() {
-        with(webView.settings) {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            builtInZoomControls = false
-            displayZoomControls = false
-            allowFileAccess = false
-            allowContentAccess = false
-            userAgentString = "$userAgentString GomtmSwarmHost/2.0"
-        }
-        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-        webView.webChromeClient = WebChromeClient()
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                val targetRequest = request ?: return null
-                return interceptHostRequest(targetRequest) ?: super.shouldInterceptRequest(view, targetRequest)
-            }
-
-            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                syncBridgeForUrl(url)
-                super.onPageStarted(view, url, favicon)
-            }
-
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val targetRequest = request ?: return false
-                val targetUrl = targetRequest.url.toString()
-                if (!targetRequest.isForMainFrame) {
-                    return false
-                }
-                return when {
-                    isBootstrapPage(targetUrl) || isRemoteNavigationUrl(targetUrl) -> {
-                        syncBridgeForUrl(targetUrl)
-                        false
-                    }
-                    isExternalAppNavigation(targetRequest.url) -> {
-                        openExternalNavigation(targetRequest.url)
-                        true
-                    }
-                    else -> true
-                }
-            }
-        }
-    }
-
-    private fun interceptHostRequest(request: WebResourceRequest): WebResourceResponse? {
-        val url = request.url
-        return assetLoader.shouldInterceptRequest(url)
-            ?: if (isEmbeddedConsoleUrl(url.toString())) proxyConsoleRequest(request) else null
-    }
-
-    // Serve the remote console from a local HTTPS origin so WebView treats /dash/p2p as a secure context.
-    private fun proxyConsoleRequest(request: WebResourceRequest): WebResourceResponse {
-        if (request.method !in setOf("GET", "HEAD")) {
-            return plainTextResponse(
-                statusCode = 405,
-                reason = "Method Not Allowed",
-                body = "Embedded console proxy only supports GET/HEAD requests.",
-            )
-        }
-
-        val currentConsoleUrl = settingsStore.load().consoleUrl
-        val upstreamUrl = resolveEmbeddedConsoleProxyTarget(currentConsoleUrl, request.url.toString())
-            ?: return plainTextResponse(
-                statusCode = 503,
-                reason = "Service Unavailable",
-                body = "Embedded console URL is not configured.",
-            )
-
-        return runCatching {
-            val connection = (URL(upstreamUrl).openConnection() as HttpURLConnection).apply {
-                instanceFollowRedirects = false
-                requestMethod = request.method
-                connectTimeout = 15_000
-                readTimeout = 30_000
-                setRequestProperty("Accept-Encoding", "identity")
-                request.requestHeaders.forEach { (name, value) ->
-                    if (
-                        name.equals("Accept-Encoding", ignoreCase = true) ||
-                        name.equals("Connection", ignoreCase = true) ||
-                        name.equals("Host", ignoreCase = true)
-                    ) {
-                        return@forEach
-                    }
-                    setRequestProperty(name, value)
-                }
-            }
-
-            val statusCode = connection.responseCode
-            val headers = buildConsoleProxyHeaders(connection, currentConsoleUrl)
-            val contentType = connection.contentType.orEmpty()
-            val mimeType = contentType.substringBefore(';').ifBlank { "text/plain" }
-            val encoding = contentType.substringAfter("charset=", "").ifBlank { null }
-            val stream = when {
-                request.method == "HEAD" -> ByteArrayInputStream(ByteArray(0))
-                statusCode >= 400 -> connection.errorStream ?: ByteArrayInputStream(ByteArray(0))
-                else -> connection.inputStream ?: ByteArrayInputStream(ByteArray(0))
-            }
-
-            WebResourceResponse(
-                mimeType,
-                encoding,
-                statusCode,
-                connection.responseMessage ?: "OK",
-                headers,
-                stream,
-            )
-        }.getOrElse { error ->
-            plainTextResponse(
-                statusCode = 502,
-                reason = "Bad Gateway",
-                body = error.message ?: error.javaClass.simpleName,
-            )
-        }
-    }
-
-    private fun buildConsoleProxyHeaders(connection: HttpURLConnection, currentConsoleUrl: String): Map<String, String> {
-        val responseHeaders = linkedMapOf<String, String>()
-        val cookieManager = CookieManager.getInstance()
-        connection.headerFields.forEach { (name, values) ->
-            if (name == null || values.isNullOrEmpty()) {
-                return@forEach
-            }
-            when {
-                name.equals("Set-Cookie", ignoreCase = true) || name.equals("Set-Cookie2", ignoreCase = true) -> {
-                    values.forEach { cookie ->
-                        cookieManager.setCookie(EMBEDDED_CONSOLE_ORIGIN, rewriteEmbeddedConsoleCookie(cookie))
-                    }
-                }
-
-                name.equals("Content-Length", ignoreCase = true) ||
-                    name.equals("Content-Encoding", ignoreCase = true) ||
-                    name.equals("Connection", ignoreCase = true) ||
-                    name.equals("Transfer-Encoding", ignoreCase = true) -> {
-                    return@forEach
-                }
-
-                name.equals("Location", ignoreCase = true) -> {
-                    responseHeaders[name] = rewriteEmbeddedConsoleLocation(currentConsoleUrl, values.last()) ?: values.last()
-                }
-
-                else -> {
-                    responseHeaders[name] = values.joinToString(", ")
-                }
-            }
-        }
-        cookieManager.flush()
-        return responseHeaders
-    }
-
-    private fun rewriteEmbeddedConsoleCookie(rawCookie: String): String {
-        return rawCookie
-            .split(';')
-            .mapNotNull { segment ->
-                val trimmed = segment.trim()
-                if (trimmed.startsWith("Domain=", ignoreCase = true)) {
-                    null
-                } else {
-                    trimmed
-                }
-            }
-            .joinToString("; ")
-    }
-
-    private fun plainTextResponse(statusCode: Int, reason: String, body: String): WebResourceResponse {
-        return WebResourceResponse(
-            "text/plain",
-            "UTF-8",
-            statusCode,
-            reason,
-            mapOf("Cache-Control" to "no-store"),
-            ByteArrayInputStream(body.toByteArray()),
-        )
-    }
-
-    private fun loadUrlInHost(url: String) {
-        syncBridgeForUrl(url)
-        webView.loadUrl(url)
-    }
-
-    private fun syncBridgeForUrl(url: String?) {
-        val shouldAttach = isBootstrapPage(url)
-        if (shouldAttach && !bridgeAttached) {
-            webView.addJavascriptInterface(hostBridge, HOST_BRIDGE_NAME)
-            bridgeAttached = true
-        } else if (!shouldAttach && bridgeAttached) {
-            webView.removeJavascriptInterface(HOST_BRIDGE_NAME)
-            bridgeAttached = false
-        }
-    }
-
-    private fun goBackInHost(): Boolean {
-        if (!webView.canGoBack()) {
-            return false
-        }
-
-        val history = webView.copyBackForwardList()
-        val previousIndex = history.currentIndex - 1
-        val previousUrl = if (previousIndex >= 0) history.getItemAtIndex(previousIndex).url else null
-        if (isBootstrapPage(previousUrl)) {
-            syncBridgeForUrl(previousUrl)
-            webView.goBack()
-            return true
-        }
-
-        webView.goBack()
-        return true
-    }
-
     private fun applyIntentOverrides(intent: Intent?) {
-        if (intent == null) {
+        val requestedBootstrap = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty()
+        if (requestedBootstrap.isNotBlank()) {
+            latestBootstrapAddress = requestedBootstrap
+        }
+    }
+
+    private fun requestRuntimeStartIfNeeded(forceRestart: Boolean = false) {
+        val snapshot = swarmRuntime.probe()
+        val bootstrapChanged = latestBootstrapAddress.isNotBlank() && latestBootstrapAddress != snapshot.bootstrapAddress
+        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !bootstrapChanged) {
+            refreshServiceState(snapshot)
             return
         }
 
-        val current = settingsStore.load()
-        val requestedConsoleUrl = intent.getStringExtra(EXTRA_CONSOLE_URL)?.trim().orEmpty()
-        val next = current.copy(
-            bootstrapAddress = intent.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty().ifBlank { current.bootstrapAddress },
-            consoleUrl = when {
-                requestedConsoleUrl.isBlank() -> current.consoleUrl
-                else -> resolveHostNavigationUrl(requestedConsoleUrl) ?: current.consoleUrl
-            },
+        if (bootstrapChanged && isRuntimeActiveState(snapshot.state)) {
+            runCatching { swarmRuntime.stop() }
+        }
+        requestRuntimeStart()
+    }
+
+    private fun toggleService() {
+        val snapshot = swarmRuntime.probe()
+        if (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state)) {
+            isAwaitingRuntimeStart = false
+            runCatching { swarmRuntime.stop() }
+            refreshServiceState()
+            return
+        }
+        requestRuntimeStart()
+    }
+
+    private fun requestRuntimeStart() {
+        isAwaitingRuntimeStart = true
+        renderServiceState(
+            SwarmStatus(
+                bridgeClassName = "",
+                state = "Starting",
+                peerId = "",
+                bootstrapAddress = latestBootstrapAddress,
+                lastError = "",
+                discoveredPeers = emptyList(),
+                rawDiscoveredPeers = "",
+            ),
         )
-        if (next != current) {
-            settingsStore.save(next)
-        }
-    }
-
-    private fun maybeAutoStartFromIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_AUTO_START, false) != true) {
-            return
-        }
-
-        val currentState = swarmRuntime.probe().state
-        if (currentState in activeRuntimeStates) {
-            return
-        }
-
         runCatching {
-            swarmRuntime.start(this, settingsStore.load().toSwarmNodeConfig())
-        }
-    }
-
-    private fun isBootstrapPage(url: String?): Boolean {
-        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
-        return uri.scheme == "https" &&
-            uri.authority == "appassets.androidplatform.net" &&
-            uri.path == "/assets/bootstrap/index.html"
-    }
-
-    private fun isRemoteNavigationUrl(url: String?): Boolean {
-        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
-        return uri.scheme in setOf("http", "https") && !uri.host.isNullOrBlank()
-    }
-
-    private fun isExternalAppNavigation(uri: Uri): Boolean {
-        val scheme = uri.scheme ?: return false
-        return scheme !in setOf("http", "https", "javascript", "file", "data", "about", "blob", "content")
-    }
-
-    private fun openExternalNavigation(uri: Uri) {
-        if (uri.scheme == "intent") {
-            val parsedIntent = runCatching {
-                Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
-            }.getOrNull() ?: return
-
-            val fallbackUrl = parsedIntent.getStringExtra("browser_fallback_url")
-            if (!fallbackUrl.isNullOrBlank() && isRemoteNavigationUrl(fallbackUrl)) {
-                loadUrlInHost(fallbackUrl)
-                return
-            }
-
-            parsedIntent.component = null
-            parsedIntent.selector = null
-            parsedIntent.addCategory(Intent.CATEGORY_BROWSABLE)
-            openBrowsableIntent(parsedIntent)
+            swarmRuntime.start(
+                this,
+                SwarmNodeConfig(bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP }),
+            )
+        }.onFailure { error ->
+            isAwaitingRuntimeStart = false
+            renderServiceState(SwarmStatus.missing(error.message ?: error.javaClass.simpleName))
             return
         }
+        refreshServiceState()
+    }
 
-        openBrowsableIntent(
-            Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE),
+    private fun refreshServiceState(snapshot: SwarmStatus = swarmRuntime.probe()) {
+        if (isRuntimeActiveState(snapshot.state)) {
+            isAwaitingRuntimeStart = false
+        }
+        renderServiceState(snapshot)
+    }
+
+    private fun renderServiceState(snapshot: SwarmStatus) {
+        when {
+            isRuntimeActiveState(snapshot.state) -> applyServiceState(
+                stateText = R.string.service_state_running,
+                detailText = detailForSnapshot(snapshot),
+                buttonContentDescription = R.string.service_action_stop,
+                badgeBackground = R.drawable.bg_status_running,
+                textColor = R.color.gomtm_status_running_text,
+                buttonIcon = R.drawable.ic_node_online,
+                buttonEnabled = true,
+            )
+
+            snapshot.state.equals("Error", ignoreCase = true) -> applyServiceState(
+                stateText = R.string.service_state_error,
+                detailText = detailForSnapshot(snapshot),
+                buttonContentDescription = R.string.service_action_start,
+                badgeBackground = R.drawable.bg_status_stopped,
+                textColor = R.color.gomtm_status_stopped_text,
+                buttonIcon = R.drawable.ic_node_offline,
+                buttonEnabled = true,
+            )
+
+            isRuntimeStartingState(snapshot.state) -> applyServiceState(
+                stateText = R.string.service_state_starting,
+                detailText = detailForSnapshot(snapshot),
+                buttonContentDescription = R.string.service_action_stop,
+                badgeBackground = R.drawable.bg_status_starting,
+                textColor = R.color.gomtm_status_starting_text,
+                buttonIcon = R.drawable.ic_node_starting,
+                buttonEnabled = true,
+            )
+
+            isAwaitingRuntimeStart -> applyServiceState(
+                stateText = R.string.service_state_starting,
+                detailText = getString(R.string.service_state_starting_detail),
+                buttonContentDescription = R.string.service_action_starting,
+                badgeBackground = R.drawable.bg_status_starting,
+                textColor = R.color.gomtm_status_starting_text,
+                buttonIcon = R.drawable.ic_node_starting,
+                buttonEnabled = false,
+            )
+
+            else -> applyServiceState(
+                stateText = R.string.service_state_stopped,
+                detailText = getString(R.string.service_state_stopped_detail),
+                buttonContentDescription = R.string.service_action_start,
+                badgeBackground = R.drawable.bg_status_stopped,
+                textColor = R.color.gomtm_status_stopped_text,
+                buttonIcon = R.drawable.ic_node_offline,
+                buttonEnabled = true,
+            )
+        }
+    }
+
+    private fun detailForSnapshot(snapshot: SwarmStatus): String {
+        return when {
+            isRuntimeActiveState(snapshot.state) && snapshot.peerId.isNotBlank() -> getString(
+                R.string.service_state_running_detail_peer,
+                snapshot.peerId,
+            )
+
+            isRuntimeActiveState(snapshot.state) -> getString(R.string.service_state_running_detail)
+
+            snapshot.state.equals("Error", ignoreCase = true) -> getString(
+                R.string.service_state_error_detail,
+                snapshot.lastError.ifBlank { getString(R.string.service_state_error_unknown) },
+            )
+
+            snapshot.bootstrapAddress.isNotBlank() -> getString(
+                R.string.service_state_starting_detail_runtime,
+                snapshot.state.ifBlank { getString(R.string.service_state_starting) },
+                snapshot.bootstrapAddress,
+            )
+
+            else -> getString(R.string.service_state_starting_detail)
+        }
+    }
+
+    private fun isRuntimeActiveState(state: String): Boolean {
+        return state.equals("Ready", ignoreCase = true) ||
+            state.equals("Connected", ignoreCase = true) ||
+            state.equals("Registered", ignoreCase = true)
+    }
+
+    private fun isRuntimeStartingState(state: String): Boolean {
+        return state.equals("Starting", ignoreCase = true) ||
+            state.equals("Connecting", ignoreCase = true)
+    }
+
+    private fun applyServiceState(
+        stateText: Int,
+        detailText: String,
+        buttonContentDescription: Int,
+        @DrawableRes badgeBackground: Int,
+        @ColorRes textColor: Int,
+        @DrawableRes buttonIcon: Int,
+        buttonEnabled: Boolean,
+    ) {
+        serviceStatusValue.text = getString(stateText)
+        serviceStatusValue.setBackgroundResource(badgeBackground)
+        serviceStatusValue.setTextColor(ContextCompat.getColor(this, textColor))
+        serviceStatusDetail.text = detailText
+        serviceToggleButton.text = ""
+        serviceToggleButton.contentDescription = getString(buttonContentDescription)
+        serviceToggleButton.setIconResource(buttonIcon)
+        serviceToggleButton.iconTint = null
+        serviceToggleButton.backgroundTintList = ColorStateList.valueOf(
+            ContextCompat.getColor(this, R.color.surface_panel),
         )
-    }
-
-    private fun openBrowsableIntent(intent: Intent) {
-        runCatching {
-            startActivity(intent)
-        }.getOrElse { error ->
-            if (error !is ActivityNotFoundException && error !is SecurityException) {
-                throw error
-            }
-        }
-    }
-
-    private fun requestScreenCapturePermission(): Boolean {
-        val projectionManager = getSystemService(MediaProjectionManager::class.java) ?: return false
-        screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent())
-        return true
+        serviceToggleButton.strokeColor = ColorStateList.valueOf(
+            ContextCompat.getColor(this, R.color.gomtm_outline_variant),
+        )
+        serviceToggleButton.isEnabled = buttonEnabled
     }
 
     companion object {
-        private const val EXTRA_AUTO_START = "auto_start"
         private const val EXTRA_BOOTSTRAP = "bootstrap"
-        private const val EXTRA_CONSOLE_URL = "console_url"
         private const val REFRESH_INTERVAL_MS = 750L
     }
 }
