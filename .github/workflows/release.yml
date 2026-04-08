@@ -2,13 +2,19 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'app/libs/gomtm-swarm-android.json'
+      - '.github/workflows/release.yml'
+      - '.github/actions/setup-pinned-gomtm-swarm-aar/action.yml'
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Semantic version tag to publish, for example v0.4.0
-        required: true
+        description: Optional release tag override
+        required: false
         type: string
 
 concurrency:
@@ -38,19 +44,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
             release_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            release_tag="${GOMTM_SWARM_AAR_VERSION}"
           else
             release_tag="${{ inputs.release_tag }}"
           fi
-          test -n "${release_tag}" || { echo "Missing release tag." >&2; exit 1; }
-          case "${release_tag}" in
-            v*) ;;
-            *)
-              echo "release_tag must start with v" >&2
-              exit 1
-              ;;
-          esac
+          test -n "${release_tag}" || { echo "Missing release tag and pinned gomtm swarm version." >&2; exit 1; }
           echo "RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
 
       - name: Write provenance

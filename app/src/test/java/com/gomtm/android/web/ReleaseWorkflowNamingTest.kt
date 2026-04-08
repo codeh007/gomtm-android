@@ -17,10 +17,15 @@ class ReleaseWorkflowNamingTest {
             workflow.contains("name: gomtm-swarm ${'$'}{{ env.RELEASE_TAG }}"),
         )
         assertTrue("release workflow should only publish versioned tags", workflow.contains("tags:"))
+        assertTrue("release workflow should auto-release pinned builds from main", workflow.contains("branches:"))
+        assertTrue("release workflow should watch main branch", workflow.contains("- main"))
+        assertTrue(
+            "release workflow should derive main-branch releases from the pinned swarm AAR version",
+            workflow.contains("release_tag=\"${'$'}{GOMTM_SWARM_AAR_VERSION}\""),
+        )
         assertTrue("release workflow should publish renamed apk asset", workflow.contains("gomtm-swarm-arm64-v8a-debug.apk"))
         assertTrue("release workflow should publish renamed provenance asset", workflow.contains("gomtm-swarm-provenance.json"))
         assertFalse("release workflow should not keep gomtm-android public release copy", workflow.contains("gomtm-android installable bootstrap APK"))
-        assertFalse("release workflow should not auto-release on main branch pin updates", workflow.contains("branches:"))
     }
 
     private fun resolveReleaseWorkflowPath(): Path {

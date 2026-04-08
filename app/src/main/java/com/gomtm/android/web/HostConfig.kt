@@ -6,7 +6,7 @@ import java.net.URI
 
 data class HostSettings(
     val bootstrapAddress: String = SwarmNodeConfig.DEFAULT_BOOTSTRAP,
-    val nodeName: String = SwarmNodeConfig.defaultNodeName(),
+    val nodeName: String = "",
     val consoleUrl: String = "",
 )
 
@@ -24,7 +24,7 @@ class SharedPreferencesHostSettingsStore(
     override fun load(): HostSettings {
         return HostSettings(
             bootstrapAddress = preferences.getString(KEY_BOOTSTRAP, SwarmNodeConfig.DEFAULT_BOOTSTRAP).orEmpty(),
-            nodeName = preferences.getString(KEY_NODE_NAME, SwarmNodeConfig.defaultNodeName()).orEmpty(),
+            nodeName = preferences.getString(KEY_NODE_NAME, "").orEmpty(),
             consoleUrl = preferences.getString(KEY_CONSOLE_URL, "").orEmpty(),
         )
     }
@@ -57,16 +57,92 @@ fun resolveHostNavigationUrl(raw: String, defaultPath: String = "/dash/p2p"): St
     if (scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) {
         return null
     }
+    if (uri.host.equals(EMBEDDED_CONSOLE_HOST, ignoreCase = true)) {
+        return null
+    }
     val normalizedPath = uri.rawPath?.takeIf { it.isNotBlank() && it != "/" } ?: defaultPath
-    return URI(uri.scheme, uri.rawAuthority, normalizedPath, uri.rawQuery, uri.rawFragment).toString()
+    return buildUriString(uri.scheme, uri.rawAuthority, normalizedPath, uri.rawQuery, uri.rawFragment)
+}
+
+fun resolveEmbeddedConsoleUrl(raw: String): String? {
+    val canonical = resolveHostNavigationUrl(raw) ?: return null
+    val uri = runCatching { URI(canonical) }.getOrNull() ?: return null
+    return buildUriString(EMBEDDED_CONSOLE_SCHEME, EMBEDDED_CONSOLE_HOST, uri.rawPath, uri.rawQuery, uri.rawFragment)
+}
+
+fun isEmbeddedConsoleUrl(raw: String?): Boolean {
+    val uri = runCatching { URI(raw) }.getOrNull() ?: return false
+    return uri.scheme?.lowercase() == EMBEDDED_CONSOLE_SCHEME &&
+        uri.host.equals(EMBEDDED_CONSOLE_HOST, ignoreCase = true)
+}
+
+fun resolveEmbeddedConsoleProxyTarget(currentConsoleUrl: String, embeddedRequestUrl: String): String? {
+    if (!isEmbeddedConsoleUrl(embeddedRequestUrl)) {
+        return null
+    }
+    val canonical = resolveHostNavigationUrl(currentConsoleUrl) ?: return null
+    val upstream = runCatching { URI(canonical) }.getOrNull() ?: return null
+    val embedded = runCatching { URI(embeddedRequestUrl) }.getOrNull() ?: return null
+    return buildUriString(upstream.scheme, upstream.rawAuthority, embedded.rawPath, embedded.rawQuery, embedded.rawFragment)
+}
+
+fun rewriteEmbeddedConsoleLocation(currentConsoleUrl: String, rawLocation: String): String? {
+    val canonical = resolveHostNavigationUrl(currentConsoleUrl) ?: return null
+    val upstream = runCatching { URI(canonical) }.getOrNull() ?: return null
+    val resolved = runCatching { upstream.resolve(rawLocation) }.getOrNull() ?: return null
+    val scheme = resolved.scheme?.lowercase()
+    if (scheme !in setOf("http", "https") || resolved.host.isNullOrBlank()) {
+        return null
+    }
+    val sameUpstreamOrigin = scheme == upstream.scheme?.lowercase() && resolved.rawAuthority == upstream.rawAuthority
+    return if (sameUpstreamOrigin) {
+        resolveEmbeddedConsoleUrl(resolved.toString())
+    } else {
+        resolved.toString()
+    }
 }
 
 fun HostSettings.toSwarmNodeConfig(): SwarmNodeConfig {
     return SwarmNodeConfig(
         bootstrapAddress = bootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
-        nodeName = nodeName.ifBlank { SwarmNodeConfig.defaultNodeName() },
         autoReconnect = true,
     )
 }
 
+private fun buildUriString(
+    scheme: String?,
+    rawAuthority: String?,
+    rawPath: String?,
+    rawQuery: String?,
+    rawFragment: String?,
+): String? {
+    if (scheme.isNullOrBlank() || rawAuthority.isNullOrBlank()) {
+        return null
+    }
+
+    val normalizedPath = when {
+        rawPath.isNullOrBlank() -> "/"
+        rawPath.startsWith('/') -> rawPath
+        else -> "/$rawPath"
+    }
+    return buildString {
+        append(scheme)
+        append("://")
+        append(rawAuthority)
+        append(normalizedPath)
+        if (!rawQuery.isNullOrBlank()) {
+            append('?')
+            append(rawQuery)
+        }
+        if (!rawFragment.isNullOrBlank()) {
+            append('#')
+            append(rawFragment)
+        }
+    }
+}
+
 private val SCHEME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://")
+
+const val EMBEDDED_CONSOLE_SCHEME = "https"
+const val EMBEDDED_CONSOLE_HOST = "gomtm.console.invalid"
+const val EMBEDDED_CONSOLE_ORIGIN = "$EMBEDDED_CONSOLE_SCHEME://$EMBEDDED_CONSOLE_HOST"

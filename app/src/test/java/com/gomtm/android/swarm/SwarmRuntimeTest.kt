@@ -83,7 +83,6 @@ class SwarmRuntimeTest {
 
     class FakeConfig {
         fun setBootstrapAddr(@Suppress("UNUSED_PARAMETER") value: String) = Unit
-        fun setNodeName(@Suppress("UNUSED_PARAMETER") value: String) = Unit
         fun setAutoReconnect(@Suppress("UNUSED_PARAMETER") value: Boolean) = Unit
     }
 

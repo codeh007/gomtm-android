@@ -6,6 +6,7 @@ import com.gomtm.swarm.swarm.SwarmNodeConfig
 import com.gomtm.swarm.swarm.SwarmStatus
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,7 +17,6 @@ class GomtmHostBridgeTest {
         val settingsStore = InMemorySettingsStore(
             HostSettings(
                 bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/bootstrap",
-                nodeName = "android-cloud-a",
                 consoleUrl = "https://gomtm.example.com",
             ),
         )
@@ -31,10 +31,48 @@ class GomtmHostBridgeTest {
         val snapshot = JSONObject(bridge.getRuntimeSnapshot())
 
         assertEquals("android_webview", snapshot.getJSONObject("host").getString("surface"))
-        assertEquals("android-cloud-a", snapshot.getJSONObject("config").getString("node_name"))
         assertEquals("Ready", snapshot.getJSONObject("runtime").getString("state"))
         assertEquals("granted", snapshot.getJSONObject("runtime").getJSONObject("permissions").getString("accessibility"))
         assertEquals(1, snapshot.getJSONObject("runtime").getJSONArray("discovered_peers").length())
+    }
+
+    @Test
+    fun runtimeSnapshotOmitsLegacyNodeNameField() {
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = InMemorySettingsStore(HostSettings()),
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(bridge.getRuntimeSnapshot())
+
+        assertEquals(false, snapshot.getJSONObject("config").has("node_name"))
+    }
+
+    @Test
+    fun startNodeIgnoresLegacyNodeNamePayload() {
+        val runtime = FakeRuntimeHost()
+        val settingsStore = InMemorySettingsStore(HostSettings())
+        val bridge = GomtmHostBridge(
+            runtimeHost = runtime,
+            settingsStore = settingsStore,
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(
+            bridge.startNode(
+                """
+                {"bootstrap_address":"/ip4/156.225.19.101/tcp/4101/p2p/relay","node_name":"legacy-node-name","console_url":"gomtm.example.com"}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("/ip4/156.225.19.101/tcp/4101/p2p/relay", settingsStore.current.bootstrapAddress)
+        assertEquals(false, snapshot.getJSONObject("config").has("node_name"))
     }
 
     @Test
@@ -52,16 +90,14 @@ class GomtmHostBridgeTest {
         val snapshot = JSONObject(
             bridge.startNode(
                 """
-                {"bootstrap_address":"/ip4/156.225.19.101/tcp/4101/p2p/relay","node_name":"android-cloud-b","console_url":"gomtm.example.com"}
+				{"bootstrap_address":"/ip4/156.225.19.101/tcp/4101/p2p/relay","console_url":"gomtm.example.com"}
                 """.trimIndent(),
             ),
         )
 
         assertEquals("/ip4/156.225.19.101/tcp/4101/p2p/relay", settingsStore.current.bootstrapAddress)
-        assertEquals("android-cloud-b", settingsStore.current.nodeName)
-        assertEquals("gomtm.example.com", settingsStore.current.consoleUrl)
+        assertEquals("https://gomtm.example.com/dash/p2p", settingsStore.current.consoleUrl)
         assertEquals(1, runtime.startedConfigs.size)
-        assertEquals("android-cloud-b", runtime.startedConfigs.single().nodeName)
         assertEquals("Starting", snapshot.getJSONObject("runtime").getString("state"))
     }
 
@@ -79,15 +115,139 @@ class GomtmHostBridgeTest {
         val snapshot = JSONObject(
             bridge.saveHostSettings(
                 """
-                {"bootstrap_address":"/ip4/203.0.113.1/tcp/4101/p2p/relay","node_name":"android-save-only","console_url":"http://10.0.2.2:3700"}
+				{"bootstrap_address":"/ip4/203.0.113.1/tcp/4101/p2p/relay","console_url":"http://10.0.2.2:3700"}
                 """.trimIndent(),
             ),
         )
 
         assertEquals("/ip4/203.0.113.1/tcp/4101/p2p/relay", settingsStore.current.bootstrapAddress)
-        assertEquals("android-save-only", settingsStore.current.nodeName)
-        assertEquals("http://10.0.2.2:3700", settingsStore.current.consoleUrl)
-        assertEquals("android-save-only", snapshot.getJSONObject("config").getString("node_name"))
+        assertEquals("http://10.0.2.2:3700/dash/p2p", settingsStore.current.consoleUrl)
+        assertEquals("http://10.0.2.2:3700/dash/p2p", snapshot.getJSONObject("config").getString("console_url"))
+    }
+
+    @Test
+    fun saveHostSettingsRejectsEmbeddedConsoleUrlAsCanonicalInput() {
+        val settingsStore = InMemorySettingsStore(
+            HostSettings(consoleUrl = "https://gomtm.example.com/dash/p2p"),
+        )
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = settingsStore,
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(
+            bridge.saveHostSettings(
+                """
+				{"console_url":"https://gomtm.console.invalid/dash/p2p"}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("请填写可访问的 http 或 https gomtmui URL。", snapshot.getJSONObject("runtime").getString("action_error"))
+        assertEquals("https://gomtm.example.com/dash/p2p", settingsStore.current.consoleUrl)
+    }
+
+    @Test
+    fun saveHostSettingsRejectsInvalidConsoleUrlScheme() {
+        val settingsStore = InMemorySettingsStore(
+            HostSettings(consoleUrl = "https://gomtm.example.com/dash/p2p"),
+        )
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = settingsStore,
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(
+            bridge.saveHostSettings(
+                """
+				{"console_url":"javascript:alert(1)"}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("请填写可访问的 http 或 https gomtmui URL。", snapshot.getJSONObject("runtime").getString("action_error"))
+        assertEquals("https://gomtm.example.com/dash/p2p", settingsStore.current.consoleUrl)
+    }
+
+    @Test
+    fun saveHostSettingsRejectsBlankBootstrapInput() {
+        val settingsStore = InMemorySettingsStore(
+            HostSettings(bootstrapAddress = "/ip4/203.0.113.1/tcp/4101/p2p/relay"),
+        )
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = settingsStore,
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(
+            bridge.saveHostSettings(
+                """
+				{"bootstrap_address":"   "}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("请先填写 Bootstrap 地址。", snapshot.getJSONObject("runtime").getString("action_error"))
+        assertEquals("/ip4/203.0.113.1/tcp/4101/p2p/relay", settingsStore.current.bootstrapAddress)
+    }
+
+    @Test
+    fun saveHostSettingsAllowsClearingConsoleUrl() {
+        val settingsStore = InMemorySettingsStore(
+            HostSettings(consoleUrl = "https://gomtm.example.com/dash/p2p"),
+        )
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = settingsStore,
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val snapshot = JSONObject(
+            bridge.saveHostSettings(
+                """
+				{"bootstrap_address":"/ip4/203.0.113.1/tcp/4101/p2p/relay","console_url":""}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("", settingsStore.current.consoleUrl)
+        assertEquals("", snapshot.getJSONObject("config").getString("console_url"))
+    }
+
+    @Test
+    fun validateConsoleUrlReturnsCanonicalUrlAndRejectsInvalidInput() {
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = InMemorySettingsStore(HostSettings()),
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = {},
+        )
+
+        val valid = JSONObject(bridge.validateConsoleUrl("gomtm.example.com"))
+        val blank = JSONObject(bridge.validateConsoleUrl("  "))
+        val invalid = JSONObject(bridge.validateConsoleUrl("javascript:alert(1)"))
+
+        assertTrue(valid.getBoolean("ok"))
+        assertTrue(valid.getBoolean("configured"))
+        assertEquals("https://gomtm.example.com/dash/p2p", valid.getString("canonical_url"))
+        assertTrue(blank.getBoolean("ok"))
+        assertFalse(blank.getBoolean("configured"))
+        assertEquals("", blank.getString("canonical_url"))
+        assertFalse(invalid.getBoolean("ok"))
+        assertEquals("invalid_console_url", invalid.getString("error"))
+        assertEquals("请填写可访问的 http 或 https gomtmui URL。", invalid.getString("message"))
     }
 
     @Test
@@ -103,9 +263,10 @@ class GomtmHostBridgeTest {
     @Test
     fun openConsoleUrlNormalizesAndDelegatesNavigation() {
         var navigatedTo = ""
+        val settingsStore = InMemorySettingsStore(HostSettings())
         val bridge = GomtmHostBridge(
             runtimeHost = FakeRuntimeHost(),
-            settingsStore = InMemorySettingsStore(HostSettings()),
+            settingsStore = settingsStore,
             launchAccessibilitySettings = {},
             requestScreenCapturePermissionAction = { true },
             navigateToUrl = { navigatedTo = it },
@@ -114,8 +275,10 @@ class GomtmHostBridgeTest {
         val result = JSONObject(bridge.openConsoleUrl("gomtm.example.com"))
 
         assertEquals(true, result.getBoolean("ok"))
-        assertEquals("https://gomtm.example.com/dash/p2p", result.getString("url"))
-        assertEquals("https://gomtm.example.com/dash/p2p", navigatedTo)
+        assertEquals("https://gomtm.console.invalid/dash/p2p", result.getString("url"))
+        assertEquals("https://gomtm.example.com/dash/p2p", result.getString("canonical_url"))
+        assertEquals("https://gomtm.example.com/dash/p2p", settingsStore.current.consoleUrl)
+        assertEquals("https://gomtm.console.invalid/dash/p2p", navigatedTo)
     }
 
     @Test
