@@ -274,6 +274,9 @@
     setButtonAvailability('openConsoleButton', {
       disabled: !effectiveValidation.canOpenConsole,
     })
+    setButtonAvailability('openAgentConsoleButton', {
+      disabled: !effectiveValidation.canOpenConsole || !String(effectiveSnapshot?.runtime?.peer_id || '').trim(),
+    })
 
     if (!effectiveValidation.bootstrap.configured) {
       setActionStatus('runtimeActionStatus', '未配置', 'neutral')
@@ -434,6 +437,21 @@
             peersText: renderPeers(lastSnapshot?.runtime?.discovered_peers || []),
             peersCount: Array.isArray(lastSnapshot?.runtime?.discovered_peers) ? lastSnapshot.runtime.discovered_peers.length : 0,
             errorText: '请先填写可访问的 gomtmui URL。',
+            logText: logState.join('\n\n'),
+            logCount: logState.length,
+          })
+        }
+      })
+    })
+
+    document.getElementById('openAgentConsoleButton').addEventListener('click', () => {
+      withBridge((host) => {
+        const result = parseJson(host.openPeerAgentConsole(), { ok: false, error: 'peer_unavailable' })
+        if (!result.ok) {
+          renderDiagnostics({
+            peersText: renderPeers(lastSnapshot?.runtime?.discovered_peers || []),
+            peersCount: Array.isArray(lastSnapshot?.runtime?.discovered_peers) ? lastSnapshot.runtime.discovered_peers.length : 0,
+            errorText: result.error === 'peer_unavailable' ? '当前节点还没有可用的 peer id。' : '请先填写可访问的 gomtmui URL。',
             logText: logState.join('\n\n'),
             logCount: logState.length,
           })

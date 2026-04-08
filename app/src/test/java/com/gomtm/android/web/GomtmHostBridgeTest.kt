@@ -282,6 +282,28 @@ class GomtmHostBridgeTest {
     }
 
     @Test
+    fun openPeerAgentConsoleUsesCurrentPeerIdAndDelegatesNavigation() {
+        var navigatedTo = ""
+        val settingsStore = InMemorySettingsStore(
+            HostSettings(consoleUrl = "https://gomtm.example.com/dash/p2p"),
+        )
+        val bridge = GomtmHostBridge(
+            runtimeHost = FakeRuntimeHost(),
+            settingsStore = settingsStore,
+            launchAccessibilitySettings = {},
+            requestScreenCapturePermissionAction = { true },
+            navigateToUrl = { navigatedTo = it },
+        )
+
+        val result = JSONObject(bridge.openPeerAgentConsole())
+
+        assertEquals(true, result.getBoolean("ok"))
+        assertEquals("12D3KooW-test", result.getString("peer_id"))
+        assertEquals("https://gomtm.console.invalid/dash/p2p/12D3KooW-test/android", result.getString("url"))
+        assertEquals("https://gomtm.console.invalid/dash/p2p/12D3KooW-test/android", navigatedTo)
+    }
+
+    @Test
     fun rejectsInvalidConsoleUrl() {
         var navigated = false
         val bridge = GomtmHostBridge(

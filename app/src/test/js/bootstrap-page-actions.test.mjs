@@ -228,6 +228,9 @@ function bootstrapPageHarness(getSnapshot) {
       openConsoleUrl() {
         return JSON.stringify({ ok: true, url: 'https://gomtm.console.invalid/dash/p2p' })
       },
+      openPeerAgentConsole() {
+        return JSON.stringify({ ok: true, url: 'https://gomtm.console.invalid/dash/p2p/12D3KooW-agent/android' })
+      },
       validateConsoleUrl(raw) {
         const trimmed = String(raw || '').trim()
         if (!trimmed) {
@@ -279,6 +282,7 @@ function createElements() {
     'openAccessibilityButton',
     'requestScreenCaptureButton',
     'openConsoleButton',
+    'openAgentConsoleButton',
     'stateValue',
     'peerValue',
     'bootstrapValue',

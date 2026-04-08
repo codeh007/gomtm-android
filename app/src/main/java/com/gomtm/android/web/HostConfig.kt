@@ -70,6 +70,29 @@ fun resolveEmbeddedConsoleUrl(raw: String): String? {
     return buildUriString(EMBEDDED_CONSOLE_SCHEME, EMBEDDED_CONSOLE_HOST, uri.rawPath, uri.rawQuery, uri.rawFragment)
 }
 
+fun resolveHostPeerAgentUrl(raw: String, peerId: String): String? {
+    val normalizedPeerId = peerId.trim()
+    if (normalizedPeerId.isEmpty()) {
+        return null
+    }
+    val canonical = resolveHostNavigationUrl(raw) ?: return null
+    val uri = runCatching { URI(canonical) }.getOrNull() ?: return null
+    val basePath = uri.rawPath?.trimEnd('/')?.ifBlank { "/dash/p2p" } ?: "/dash/p2p"
+    return buildUriString(
+        uri.scheme,
+        uri.rawAuthority,
+        "$basePath/$normalizedPeerId/android",
+        uri.rawQuery,
+        uri.rawFragment,
+    )
+}
+
+fun resolveEmbeddedPeerAgentUrl(raw: String, peerId: String): String? {
+    val canonical = resolveHostPeerAgentUrl(raw, peerId) ?: return null
+    val uri = runCatching { URI(canonical) }.getOrNull() ?: return null
+    return buildUriString(EMBEDDED_CONSOLE_SCHEME, EMBEDDED_CONSOLE_HOST, uri.rawPath, uri.rawQuery, uri.rawFragment)
+}
+
 fun isEmbeddedConsoleUrl(raw: String?): Boolean {
     val uri = runCatching { URI(raw) }.getOrNull() ?: return false
     return uri.scheme?.lowercase() == EMBEDDED_CONSOLE_SCHEME &&

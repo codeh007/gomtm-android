@@ -123,6 +123,29 @@ class GomtmHostBridge(
     }
 
     @JavascriptInterface
+    fun openPeerAgentConsole(): String {
+        val current = settingsStore.load()
+        val normalized = resolveHostNavigationUrl(current.consoleUrl)
+            ?: return JSONObject().put("ok", false).put("error", "invalid_console_url").toString()
+        val status = runtimeHost.probe()
+        val peerId = status.peerId.trim()
+        if (peerId.isEmpty()) {
+            return JSONObject().put("ok", false).put("error", "peer_unavailable").toString()
+        }
+        val embeddedUrl = resolveEmbeddedPeerAgentUrl(normalized, peerId)
+            ?: return JSONObject().put("ok", false).put("error", "invalid_console_url").toString()
+
+        settingsStore.save(current.copy(consoleUrl = normalized))
+        navigateToUrl(embeddedUrl)
+        return JSONObject()
+            .put("ok", true)
+            .put("url", embeddedUrl)
+            .put("canonical_url", normalized)
+            .put("peer_id", peerId)
+            .toString()
+    }
+
+    @JavascriptInterface
     fun validateConsoleUrl(rawUrl: String): String {
         val trimmed = rawUrl.trim()
         if (trimmed.isEmpty()) {
