@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -83,7 +83,6 @@ class SwarmRuntimeTest {
 
     class FakeConfig {
         fun setBootstrapAddr(@Suppress("UNUSED_PARAMETER") value: String) = Unit
-        fun setNodeName(@Suppress("UNUSED_PARAMETER") value: String) = Unit
         fun setAutoReconnect(@Suppress("UNUSED_PARAMETER") value: Boolean) = Unit
     }
 

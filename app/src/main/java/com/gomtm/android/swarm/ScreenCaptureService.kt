@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -11,8 +11,8 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.gomtm.android.MainActivity
-import com.gomtm.android.R
+import com.gomtm.swarm.MainActivity
+import com.gomtm.swarm.R
 
 class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
@@ -72,8 +72,8 @@ class ScreenCaptureService : Service() {
     }
 
     companion object {
-        private const val ACTION_START_PROJECTION = "com.gomtm.android.action.START_PROJECTION"
-        private const val ACTION_STOP_PROJECTION = "com.gomtm.android.action.STOP_PROJECTION"
+        private const val ACTION_START_PROJECTION = "com.gomtm.swarm.action.START_PROJECTION"
+        private const val ACTION_STOP_PROJECTION = "com.gomtm.swarm.action.STOP_PROJECTION"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_PROJECTION_DATA = "projection_data"
         private const val NOTIFICATION_CHANNEL_ID = "gomtm_screen_capture"

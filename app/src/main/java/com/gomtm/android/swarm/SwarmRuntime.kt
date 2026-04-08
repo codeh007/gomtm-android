@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 import android.content.Context
 import android.os.Build
@@ -16,7 +16,6 @@ class SwarmRuntime(
         val configClass = Class.forName(configClassName, true, classLoader)
         val configInstance = configClass.getDeclaredConstructor().newInstance()
         setStringProperty(configClass, configInstance, listOf("SetBootstrapAddr", "setBootstrapAddr"), config.bootstrapAddress)
-        setStringProperty(configClass, configInstance, listOf("SetNodeName", "setNodeName"), config.nodeName)
         setBooleanProperty(configClass, configInstance, listOf("SetAutoReconnect", "setAutoReconnect"), config.autoReconnect)
         val baseDir = runtimeBaseDir(context)
         if (hasMethod(bridge, listOf("StartNode", "startNode"), arrayOf(String::class.java, configClass))) {
@@ -33,14 +32,14 @@ class SwarmRuntime(
             if (hasMethod(
                     bridge,
                     listOf("StartNodeWithOptions", "startNodeWithOptions"),
-                    arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
+					arrayOf(String::class.java, String::class.java, booleanType),
                 )
             ) {
                 invokeStaticByNames(
                     bridge = bridge,
                     methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
-                    args = arrayOf(baseDir, config.bootstrapAddress, config.nodeName, config.autoReconnect),
-                    parameterTypes = arrayOf(String::class.java, String::class.java, String::class.java, booleanType),
+					args = arrayOf(baseDir, config.bootstrapAddress, config.autoReconnect),
+					parameterTypes = arrayOf(String::class.java, String::class.java, booleanType),
                 )
                 return
             }

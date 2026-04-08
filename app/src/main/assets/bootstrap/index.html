@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>gomtm-android</title>
+  <title>gomtm-swarm</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -11,39 +11,7 @@
     <section class="hero card">
       <div class="hero-layout">
         <div class="hero-copy">
-          <p class="eyebrow">Single Web Host</p>
-          <h1>gomtm-android</h1>
-          <div class="hero-points" aria-label="宿主页功能">
-            <div class="hero-point">
-              <span class="hero-point-icon" aria-hidden="true">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M6 10h8" />
-                  <path d="M10 6l4 4-4 4" />
-                  <path d="M4 4h4" />
-                </svg>
-              </span>
-              <span>接入节点</span>
-            </div>
-            <div class="hero-point">
-              <span class="hero-point-icon" aria-hidden="true">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10 3l5 2v4c0 3.6-2.2 5.9-5 7-2.8-1.1-5-3.4-5-7V5l5-2z" />
-                  <path d="M8.2 10.2l1.2 1.2 2.5-2.7" />
-                </svg>
-              </span>
-              <span>权限设置</span>
-            </div>
-            <div class="hero-point">
-              <span class="hero-point-icon" aria-hidden="true">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="4" width="14" height="10" rx="2" />
-                  <path d="M8 16h4" />
-                  <path d="M10 14v2" />
-                </svg>
-              </span>
-              <span>打开控制台</span>
-            </div>
-          </div>
+          <h1>gomtm-swarm</h1>
         </div>
 
         <div class="hero-status" aria-label="节点状态摘要">
@@ -69,7 +37,23 @@
     <section class="card">
       <div class="section-head">
         <h2>节点配置</h2>
-        <button id="saveButton" class="button ghost" type="button">
+      </div>
+
+      <label class="field">
+        <span>Bootstrap 地址</span>
+        <textarea id="bootstrapInput" rows="3" spellcheck="false"></textarea>
+        <p id="bootstrapValidationText" class="field-feedback" data-tone="muted"></p>
+      </label>
+
+      <label class="field">
+        <span>gomtmui URL</span>
+        <input id="consoleUrlInput" type="text" inputmode="url" spellcheck="false" placeholder="https://gomtm.example.com/dash/p2p" />
+        <p id="consoleUrlValidationText" class="field-feedback" data-tone="muted"></p>
+      </label>
+
+      <div id="configDirtyBar" class="config-dirty" data-dirty="false" aria-live="polite">
+        <strong id="configDirtyText" class="config-dirty-text" data-state-tone="connected">配置已保存</strong>
+        <button id="saveButton" class="button ghost save-button" type="button" hidden>
           <span class="button-inner">
             <span class="button-icon" aria-hidden="true">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -78,83 +62,94 @@
                 <path d="M7 13h6" />
               </svg>
             </span>
-            <span class="button-text">保存</span>
+            <span id="saveButtonText" class="button-text">保存更改</span>
           </span>
         </button>
       </div>
 
-      <label class="field">
-        <span>Bootstrap 地址</span>
-        <textarea id="bootstrapInput" rows="3" spellcheck="false"></textarea>
-      </label>
+      <div class="action-groups">
+        <section id="runtimeActionGroup" class="action-group" aria-labelledby="runtimeActionGroupTitle">
+          <div class="action-group-head">
+            <h3 id="runtimeActionGroupTitle">节点运行</h3>
+            <strong id="runtimeActionStatus" class="action-status" data-state-tone="neutral">未配置</strong>
+          </div>
+          <div class="actions action-buttons">
+            <button id="startButton" class="button primary" type="button">
+              <span class="button-inner">
+                <span class="button-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M6 4.8v10.4c0 .5.5.8.9.6l7.5-5.2c.4-.3.4-.9 0-1.2L6.9 4.2c-.4-.2-.9.1-.9.6z" />
+                  </svg>
+                </span>
+                <span class="button-text">启动</span>
+              </span>
+            </button>
+            <button id="stopButton" class="button" type="button">
+              <span class="button-inner">
+                <span class="button-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="currentColor">
+                    <rect x="5" y="5" width="10" height="10" rx="2" />
+                  </svg>
+                </span>
+                <span class="button-text">停止</span>
+              </span>
+            </button>
+          </div>
+        </section>
 
-      <label class="field">
-        <span>节点名称</span>
-        <input id="nodeNameInput" type="text" spellcheck="false" />
-      </label>
+        <section id="permissionActionGroup" class="action-group" aria-labelledby="permissionActionGroupTitle">
+          <div class="action-group-head">
+            <h3 id="permissionActionGroupTitle">权限授权</h3>
+            <strong id="permissionActionStatus" class="action-status" data-state-tone="neutral">需授权</strong>
+          </div>
+          <div class="actions action-buttons">
+            <button id="openAccessibilityButton" class="button" type="button">
+              <span class="button-inner">
+                <span class="button-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="10" cy="4.5" r="1.5" />
+                    <path d="M10 7v4" />
+                    <path d="M6 9h8" />
+                    <path d="M8 11l-2 5" />
+                    <path d="M12 11l2 5" />
+                  </svg>
+                </span>
+                <span class="button-text">无障碍</span>
+              </span>
+            </button>
+            <button id="requestScreenCaptureButton" class="button" type="button">
+              <span class="button-inner">
+                <span class="button-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="5" width="14" height="10" rx="2" />
+                    <path d="M8 8l4 2-4 2z" />
+                  </svg>
+                </span>
+                <span class="button-text">截图权限</span>
+              </span>
+            </button>
+          </div>
+        </section>
 
-      <label class="field">
-        <span>gomtmui URL</span>
-        <input id="consoleUrlInput" type="text" inputmode="url" spellcheck="false" placeholder="https://gomtm.example.com/dash/p2p" />
-      </label>
-
-      <div class="actions">
-        <button id="startButton" class="button primary" type="button">
-          <span class="button-inner">
-            <span class="button-icon" aria-hidden="true">
-              <svg viewBox="0 0 20 20" fill="currentColor">
-                <path d="M6 4.8v10.4c0 .5.5.8.9.6l7.5-5.2c.4-.3.4-.9 0-1.2L6.9 4.2c-.4-.2-.9.1-.9.6z" />
-              </svg>
-            </span>
-            <span class="button-text">启动</span>
-          </span>
-        </button>
-        <button id="stopButton" class="button" type="button">
-          <span class="button-inner">
-            <span class="button-icon" aria-hidden="true">
-              <svg viewBox="0 0 20 20" fill="currentColor">
-                <rect x="5" y="5" width="10" height="10" rx="2" />
-              </svg>
-            </span>
-            <span class="button-text">停止</span>
-          </span>
-        </button>
-        <button id="openAccessibilityButton" class="button" type="button">
-          <span class="button-inner">
-            <span class="button-icon" aria-hidden="true">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="10" cy="4.5" r="1.5" />
-                <path d="M10 7v4" />
-                <path d="M6 9h8" />
-                <path d="M8 11l-2 5" />
-                <path d="M12 11l2 5" />
-              </svg>
-            </span>
-            <span class="button-text">无障碍</span>
-          </span>
-        </button>
-        <button id="requestScreenCaptureButton" class="button" type="button">
-          <span class="button-inner">
-            <span class="button-icon" aria-hidden="true">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="5" width="14" height="10" rx="2" />
-                <path d="M8 8l4 2-4 2z" />
-              </svg>
-            </span>
-            <span class="button-text">截图权限</span>
-          </span>
-        </button>
-        <button id="openConsoleButton" class="button accent" type="button">
-          <span class="button-inner">
-            <span class="button-icon" aria-hidden="true">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M7 6l-3 4 3 4" />
-                <path d="M11 14h5" />
-              </svg>
-            </span>
-            <span class="button-text">控制台</span>
-          </span>
-        </button>
+        <section id="consoleActionGroup" class="action-group" aria-labelledby="consoleActionGroupTitle">
+          <div class="action-group-head">
+            <h3 id="consoleActionGroupTitle">控制台</h3>
+            <strong id="consoleActionStatus" class="action-status" data-state-tone="neutral">未配置</strong>
+          </div>
+          <div class="actions action-buttons action-buttons-single">
+            <button id="openConsoleButton" class="button accent" type="button">
+              <span class="button-inner">
+                <span class="button-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 6l-3 4 3 4" />
+                    <path d="M11 14h5" />
+                  </svg>
+                </span>
+                <span class="button-text">打开控制台</span>
+              </span>
+            </button>
+          </div>
+        </section>
       </div>
     </section>
 
@@ -189,19 +184,30 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2>已发现节点</h2>
-      <pre id="peersValue" class="pre"></pre>
-    </section>
+    <section id="diagnosticsCard" class="card diagnostics-card" data-empty="true">
+      <div class="section-head diagnostics-head">
+        <div>
+          <h2>诊断</h2>
+          <p id="diagnosticsSummaryText" class="section-copy diagnostics-summary">当前还没有新的节点、错误或运行日志。</p>
+        </div>
+      </div>
 
-    <section class="card">
-      <h2>错误</h2>
-      <pre id="errorValue" class="pre"></pre>
-    </section>
+      <div id="diagnosticsBody" class="diagnostics-body" hidden>
+        <section id="diagnosticsPeersSection" class="diagnostic-section" hidden>
+          <p class="label">已发现节点</p>
+          <pre id="peersValue" class="pre"></pre>
+        </section>
 
-    <section class="card">
-      <h2>最近日志</h2>
-      <pre id="logsValue" class="pre"></pre>
+        <section id="diagnosticsErrorSection" class="diagnostic-section" hidden>
+          <p class="label">错误</p>
+          <pre id="errorValue" class="pre"></pre>
+        </section>
+
+        <section id="diagnosticsLogsSection" class="diagnostic-section" hidden>
+          <p class="label">最近日志</p>
+          <pre id="logsValue" class="pre"></pre>
+        </section>
+      </div>
     </section>
   </main>
 

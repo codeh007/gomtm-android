@@ -1,19 +1,19 @@
-package com.gomtm.android.web
+package com.gomtm.swarm.web
 
 import android.content.Context
 import android.provider.Settings
 import android.webkit.JavascriptInterface
-import com.gomtm.android.swarm.DiscoveredPeer
-import com.gomtm.android.swarm.RemoteControlPermissionState
-import com.gomtm.android.swarm.SwarmRuntime
-import com.gomtm.android.swarm.SwarmStatus
+import com.gomtm.swarm.swarm.DiscoveredPeer
+import com.gomtm.swarm.swarm.RemoteControlPermissionState
+import com.gomtm.swarm.swarm.SwarmRuntime
+import com.gomtm.swarm.swarm.SwarmStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
 const val HOST_BRIDGE_NAME = "GomtmAndroid"
 
 interface SwarmRuntimeHost {
-    fun start(config: com.gomtm.android.swarm.SwarmNodeConfig)
+    fun start(config: com.gomtm.swarm.swarm.SwarmNodeConfig)
 
     fun stop()
 
@@ -28,7 +28,7 @@ class SwarmRuntimeBridgeHost(
     private val context: Context,
     private val runtime: SwarmRuntime = SwarmRuntime(),
 ) : SwarmRuntimeHost {
-    override fun start(config: com.gomtm.android.swarm.SwarmNodeConfig) {
+    override fun start(config: com.gomtm.swarm.swarm.SwarmNodeConfig) {
         runtime.start(context, config)
     }
 
@@ -49,7 +49,7 @@ class GomtmHostBridge(
     private val runtimeHost: SwarmRuntimeHost,
     private val settingsStore: HostSettingsStore,
     private val launchAccessibilitySettings: () -> Unit,
-	private val requestScreenCapturePermissionAction: () -> Boolean,
+    private val requestScreenCapturePermissionAction: () -> Boolean,
     private val navigateToUrl: (String) -> Unit,
 ) {
     @JavascriptInterface
@@ -101,7 +101,7 @@ class GomtmHostBridge(
 
     @JavascriptInterface
     fun requestScreenCapturePermission(): Boolean {
-		return requestScreenCapturePermissionAction()
+        return requestScreenCapturePermissionAction()
     }
 
     @JavascriptInterface
@@ -110,18 +110,59 @@ class GomtmHostBridge(
         val candidate = rawUrl.trim().ifBlank { current.consoleUrl }
         val normalized = resolveHostNavigationUrl(candidate)
             ?: return JSONObject().put("ok", false).put("error", "invalid_console_url").toString()
+        val embeddedUrl = resolveEmbeddedConsoleUrl(normalized)
+            ?: return JSONObject().put("ok", false).put("error", "invalid_console_url").toString()
 
         settingsStore.save(current.copy(consoleUrl = normalized))
-        navigateToUrl(normalized)
-        return JSONObject().put("ok", true).put("url", normalized).toString()
+        navigateToUrl(embeddedUrl)
+        return JSONObject()
+            .put("ok", true)
+            .put("url", embeddedUrl)
+            .put("canonical_url", normalized)
+            .toString()
+    }
+
+    @JavascriptInterface
+    fun validateConsoleUrl(rawUrl: String): String {
+        val trimmed = rawUrl.trim()
+        if (trimmed.isEmpty()) {
+            return JSONObject()
+                .put("ok", true)
+                .put("configured", false)
+                .put("canonical_url", "")
+                .toString()
+        }
+
+        val normalized = resolveHostNavigationUrl(trimmed)
+            ?: return JSONObject()
+                .put("ok", false)
+                .put("configured", true)
+                .put("error", "invalid_console_url")
+                .put("message", INVALID_CONSOLE_URL_MESSAGE)
+                .toString()
+        return JSONObject()
+            .put("ok", true)
+            .put("configured", true)
+            .put("canonical_url", normalized)
+            .toString()
     }
 
     private fun mergeSettings(current: HostSettings, configJson: String): HostSettings {
         val json = runCatching { JSONObject(configJson) }.getOrNull()
+        val requestedConsoleUrl = json?.optString("console_url")?.trim().orEmpty()
+        val requestedBootstrapAddress = json?.optString("bootstrap_address")?.trim().orEmpty()
         return current.copy(
-            bootstrapAddress = json?.optString("bootstrap_address")?.trim().orEmpty().ifBlank { current.bootstrapAddress },
-            nodeName = json?.optString("node_name")?.trim().orEmpty().ifBlank { current.nodeName },
-            consoleUrl = json?.optString("console_url")?.trim().orEmpty().ifBlank { current.consoleUrl },
+            bootstrapAddress = when {
+                json?.has("bootstrap_address") != true -> current.bootstrapAddress
+                requestedBootstrapAddress.isBlank() -> throw IllegalArgumentException(INVALID_BOOTSTRAP_MESSAGE)
+                else -> requestedBootstrapAddress
+            },
+            consoleUrl = when {
+                json?.has("console_url") != true -> current.consoleUrl
+                requestedConsoleUrl.isBlank() -> ""
+                else -> resolveHostNavigationUrl(requestedConsoleUrl)
+                    ?: throw IllegalArgumentException(INVALID_CONSOLE_URL_MESSAGE)
+            },
         )
     }
 
@@ -142,7 +183,6 @@ class GomtmHostBridge(
                 "config",
                 JSONObject()
                     .put("bootstrap_address", settings.bootstrapAddress)
-                    .put("node_name", settings.nodeName)
                     .put("console_url", settings.consoleUrl),
             )
             .put(
@@ -168,6 +208,8 @@ class GomtmHostBridge(
 
     companion object {
         const val LOCAL_BOOTSTRAP_URL = "https://appassets.androidplatform.net/assets/bootstrap/index.html"
+        private const val INVALID_BOOTSTRAP_MESSAGE = "请先填写 Bootstrap 地址。"
+        private const val INVALID_CONSOLE_URL_MESSAGE = "请填写可访问的 http 或 https gomtmui URL。"
     }
 }
 

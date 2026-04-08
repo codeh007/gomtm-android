@@ -11,3 +11,4 @@ build/
 *.jks
 keystore.properties
 app/libs/*.aar
+.tmp_scripts

@@ -1,4 +1,4 @@
-package com.gomtm.android
+package com.gomtm.swarm
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -17,15 +18,23 @@ import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
-import com.gomtm.android.swarm.ScreenCaptureService
-import com.gomtm.android.swarm.SwarmRuntime
-import com.gomtm.android.web.GomtmHostBridge
-import com.gomtm.android.web.HOST_BRIDGE_NAME
-import com.gomtm.android.web.HostSettingsStore
-import com.gomtm.android.web.SharedPreferencesHostSettingsStore
-import com.gomtm.android.web.SwarmRuntimeBridgeHost
-import com.gomtm.android.web.defaultAccessibilitySettingsLauncher
-import com.gomtm.android.web.toSwarmNodeConfig
+import com.gomtm.swarm.swarm.ScreenCaptureService
+import com.gomtm.swarm.swarm.SwarmRuntime
+import com.gomtm.swarm.web.GomtmHostBridge
+import com.gomtm.swarm.web.EMBEDDED_CONSOLE_ORIGIN
+import com.gomtm.swarm.web.HOST_BRIDGE_NAME
+import com.gomtm.swarm.web.HostSettingsStore
+import com.gomtm.swarm.web.SharedPreferencesHostSettingsStore
+import com.gomtm.swarm.web.SwarmRuntimeBridgeHost
+import com.gomtm.swarm.web.defaultAccessibilitySettingsLauncher
+import com.gomtm.swarm.web.isEmbeddedConsoleUrl
+import com.gomtm.swarm.web.resolveHostNavigationUrl
+import com.gomtm.swarm.web.resolveEmbeddedConsoleProxyTarget
+import com.gomtm.swarm.web.rewriteEmbeddedConsoleLocation
+import com.gomtm.swarm.web.toSwarmNodeConfig
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -132,14 +141,14 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             allowFileAccess = false
             allowContentAccess = false
-            userAgentString = "$userAgentString GomtmAndroidHost/2.0"
+            userAgentString = "$userAgentString GomtmSwarmHost/2.0"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         webView.webChromeClient = WebChromeClient()
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                val url = request?.url ?: return super.shouldInterceptRequest(view, request)
-                return assetLoader.shouldInterceptRequest(url) ?: super.shouldInterceptRequest(view, request)
+                val targetRequest = request ?: return null
+                return interceptHostRequest(targetRequest) ?: super.shouldInterceptRequest(view, targetRequest)
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -166,6 +175,136 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun interceptHostRequest(request: WebResourceRequest): WebResourceResponse? {
+        val url = request.url
+        return assetLoader.shouldInterceptRequest(url)
+            ?: if (isEmbeddedConsoleUrl(url.toString())) proxyConsoleRequest(request) else null
+    }
+
+    // Serve the remote console from a local HTTPS origin so WebView treats /dash/p2p as a secure context.
+    private fun proxyConsoleRequest(request: WebResourceRequest): WebResourceResponse {
+        if (request.method !in setOf("GET", "HEAD")) {
+            return plainTextResponse(
+                statusCode = 405,
+                reason = "Method Not Allowed",
+                body = "Embedded console proxy only supports GET/HEAD requests.",
+            )
+        }
+
+        val currentConsoleUrl = settingsStore.load().consoleUrl
+        val upstreamUrl = resolveEmbeddedConsoleProxyTarget(currentConsoleUrl, request.url.toString())
+            ?: return plainTextResponse(
+                statusCode = 503,
+                reason = "Service Unavailable",
+                body = "Embedded console URL is not configured.",
+            )
+
+        return runCatching {
+            val connection = (URL(upstreamUrl).openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false
+                requestMethod = request.method
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                setRequestProperty("Accept-Encoding", "identity")
+                request.requestHeaders.forEach { (name, value) ->
+                    if (
+                        name.equals("Accept-Encoding", ignoreCase = true) ||
+                        name.equals("Connection", ignoreCase = true) ||
+                        name.equals("Host", ignoreCase = true)
+                    ) {
+                        return@forEach
+                    }
+                    setRequestProperty(name, value)
+                }
+            }
+
+            val statusCode = connection.responseCode
+            val headers = buildConsoleProxyHeaders(connection, currentConsoleUrl)
+            val contentType = connection.contentType.orEmpty()
+            val mimeType = contentType.substringBefore(';').ifBlank { "text/plain" }
+            val encoding = contentType.substringAfter("charset=", "").ifBlank { null }
+            val stream = when {
+                request.method == "HEAD" -> ByteArrayInputStream(ByteArray(0))
+                statusCode >= 400 -> connection.errorStream ?: ByteArrayInputStream(ByteArray(0))
+                else -> connection.inputStream ?: ByteArrayInputStream(ByteArray(0))
+            }
+
+            WebResourceResponse(
+                mimeType,
+                encoding,
+                statusCode,
+                connection.responseMessage ?: "OK",
+                headers,
+                stream,
+            )
+        }.getOrElse { error ->
+            plainTextResponse(
+                statusCode = 502,
+                reason = "Bad Gateway",
+                body = error.message ?: error.javaClass.simpleName,
+            )
+        }
+    }
+
+    private fun buildConsoleProxyHeaders(connection: HttpURLConnection, currentConsoleUrl: String): Map<String, String> {
+        val responseHeaders = linkedMapOf<String, String>()
+        val cookieManager = CookieManager.getInstance()
+        connection.headerFields.forEach { (name, values) ->
+            if (name == null || values.isNullOrEmpty()) {
+                return@forEach
+            }
+            when {
+                name.equals("Set-Cookie", ignoreCase = true) || name.equals("Set-Cookie2", ignoreCase = true) -> {
+                    values.forEach { cookie ->
+                        cookieManager.setCookie(EMBEDDED_CONSOLE_ORIGIN, rewriteEmbeddedConsoleCookie(cookie))
+                    }
+                }
+
+                name.equals("Content-Length", ignoreCase = true) ||
+                    name.equals("Content-Encoding", ignoreCase = true) ||
+                    name.equals("Connection", ignoreCase = true) ||
+                    name.equals("Transfer-Encoding", ignoreCase = true) -> {
+                    return@forEach
+                }
+
+                name.equals("Location", ignoreCase = true) -> {
+                    responseHeaders[name] = rewriteEmbeddedConsoleLocation(currentConsoleUrl, values.last()) ?: values.last()
+                }
+
+                else -> {
+                    responseHeaders[name] = values.joinToString(", ")
+                }
+            }
+        }
+        cookieManager.flush()
+        return responseHeaders
+    }
+
+    private fun rewriteEmbeddedConsoleCookie(rawCookie: String): String {
+        return rawCookie
+            .split(';')
+            .mapNotNull { segment ->
+                val trimmed = segment.trim()
+                if (trimmed.startsWith("Domain=", ignoreCase = true)) {
+                    null
+                } else {
+                    trimmed
+                }
+            }
+            .joinToString("; ")
+    }
+
+    private fun plainTextResponse(statusCode: Int, reason: String, body: String): WebResourceResponse {
+        return WebResourceResponse(
+            "text/plain",
+            "UTF-8",
+            statusCode,
+            reason,
+            mapOf("Cache-Control" to "no-store"),
+            ByteArrayInputStream(body.toByteArray()),
+        )
     }
 
     private fun loadUrlInHost(url: String) {
@@ -208,10 +347,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         val current = settingsStore.load()
+        val requestedConsoleUrl = intent.getStringExtra(EXTRA_CONSOLE_URL)?.trim().orEmpty()
         val next = current.copy(
             bootstrapAddress = intent.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty().ifBlank { current.bootstrapAddress },
-            nodeName = intent.getStringExtra(EXTRA_NODE_NAME)?.trim().orEmpty().ifBlank { current.nodeName },
-            consoleUrl = intent.getStringExtra(EXTRA_CONSOLE_URL)?.trim().orEmpty().ifBlank { current.consoleUrl },
+            consoleUrl = when {
+                requestedConsoleUrl.isBlank() -> current.consoleUrl
+                else -> resolveHostNavigationUrl(requestedConsoleUrl) ?: current.consoleUrl
+            },
         )
         if (next != current) {
             settingsStore.save(next)
@@ -293,7 +435,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val EXTRA_AUTO_START = "auto_start"
         private const val EXTRA_BOOTSTRAP = "bootstrap"
-        private const val EXTRA_NODE_NAME = "node_name"
         private const val EXTRA_CONSOLE_URL = "console_url"
         private const val REFRESH_INTERVAL_MS = 750L
     }

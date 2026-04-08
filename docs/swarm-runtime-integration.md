@@ -1,6 +1,6 @@
 # Swarm runtime integration
 
-`gomtm-android` consumes a **published, pinned** gomtm Android swarm AAR.
+`gomtm-swarm` consumes a **published, pinned** gomtm Android swarm AAR.
 
 ## Current approach
 
@@ -34,7 +34,7 @@ The pinned manifest in this repo must at least expose:
 - GitHub release AAR asset URL
 - GitHub release metadata asset URL
 
-The public app only consumes the current gomtm swarm runtime contract. Extra provenance fields are allowed, but the release trigger must depend only on the current gomtm swarm artifact identity.
+The public app only consumes the current gomtm swarm runtime contract. Extra provenance fields are allowed, but pin changes should feed CI truth, not silently create a formal public release.
 
 ## Downstream rules in this repo
 
@@ -54,6 +54,7 @@ This repo must:
 6. download the AAR into `app/libs/`
 7. validate the checksum
 8. run Gradle only after the AAR contract is satisfied
+9. publish formal app releases only through an explicit `v*` tag or manual release dispatch
 
 ## UI contract
 

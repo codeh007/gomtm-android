@@ -1,6 +1,6 @@
-# gomtm-android
+# gomtm-swarm
 
-Public Android swarm node app for gomtm.
+Public Android swarm node app for gomtm, released under the product name `gomtm-swarm`.
 
 ## Current source of truth
 
@@ -9,7 +9,7 @@ This repository is the long-term public Android app host for gomtm.
 The active architecture is:
 
 - `gomtm` remains the swarm kernel / Android AAR producer
-- `gomtm-android` is the public Android node app host, CI, release, and APK distribution repo
+- `gomtm-android` is the repository host for the public Android node app `gomtm-swarm`, including CI, release, and APK distribution
 - swarm-first comes before worker orchestration, group control, or reward automation
 - legacy monorepo `apps/android/` is migration material only, not the future app host
 
@@ -54,7 +54,7 @@ The UI is expected to show real runtime data, not a host-shell placeholder.
 
 ## Release trigger
 
-`gomtm-android` no longer relies on repository Actions variables to discover the next swarm runtime.
+This repository no longer relies on repository Actions variables to discover the next swarm runtime.
 
 The committed file `app/libs/gomtm-swarm-android.json` now pins:
 
@@ -63,7 +63,7 @@ The committed file `app/libs/gomtm-swarm-android.json` now pins:
 - the GitHub release asset URL for the metadata asset
 - the expected SHA256
 
-Updating that file on `main` is the canonical way to trigger a fresh APK release from a newly published gomtm AAR.
+Updating that file on `main` is the canonical way to refresh CI against a newly published gomtm AAR. Formal APK releases use an explicit `v*` tag or manual `Release` dispatch.
 
 ## Host shell shape
 

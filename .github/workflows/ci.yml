@@ -59,10 +59,26 @@ jobs:
       - name: Run quality checks and assemble debug APK
         run: ./gradlew --no-daemon lint testDebugUnitTest assembleDebug
 
+      - name: Prepare named debug APK artifact
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          output_metadata = json.loads(Path('app/build/outputs/apk/debug/output-metadata.json').read_text())
+          output_file = output_metadata['elements'][0]['outputFile']
+          source = Path('app/build/outputs/apk/debug') / output_file
+          target = Path('dist/gomtm-swarm-arm64-v8a-debug.apk')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(source, target)
+          PY
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: gomtm-swarm-debug-apk
+          path: dist/gomtm-swarm-arm64-v8a-debug.apk
           if-no-files-found: error
           retention-days: 14

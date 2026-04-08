@@ -1,4 +1,4 @@
-package com.gomtm.android.swarm
+package com.gomtm.swarm.swarm
 
 data class SwarmStatus(
     val bridgeClassName: String,
