@@ -12,17 +12,17 @@ import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import com.gomtm.swarm.swarm.GomtmForegroundService
+import com.gomtm.swarm.swarm.NodeRuntimeStore
 import com.gomtm.swarm.swarm.SwarmNodeConfig
 import com.gomtm.swarm.swarm.SwarmRuntime
 import com.gomtm.swarm.swarm.SwarmStatus
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = SwarmRuntime()
+    private val runtimeStore by lazy { NodeRuntimeStore(this) }
     private val refreshHandler = Handler(Looper.getMainLooper())
-    private val backgroundWorker = Executors.newSingleThreadExecutor()
-    private val remoteControlTickRunning = AtomicBoolean(false)
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
             val snapshot = swarmRuntime.probe()
@@ -37,19 +37,7 @@ class MainActivity : AppCompatActivity() {
                 LOG_TAG,
                 "probe state=${snapshot.state} peerId=${snapshot.peerId} bootstrap=${snapshot.bootstrapAddress} lastError=${snapshot.lastError}",
             )
-            if (isRuntimeActiveState(snapshot.state) && remoteControlTickRunning.compareAndSet(false, true)) {
-                backgroundWorker.execute {
-                    try {
-                        swarmRuntime.processRemoteControlTick(this@MainActivity, timeoutMs = 0)
-                    } catch (_: Throwable) {
-                    } finally {
-                        remoteControlTickRunning.set(false)
-                        runOnUiThread { refreshServiceState() }
-                    }
-                }
-            } else {
-                refreshServiceState(snapshot)
-            }
+            refreshServiceState(snapshot)
             refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
         }
     }
@@ -61,6 +49,7 @@ class MainActivity : AppCompatActivity() {
 
     private var isAwaitingRuntimeStart = false
     private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
+    private var autoStartRequested = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,7 +65,9 @@ class MainActivity : AppCompatActivity() {
 
         applyIntentOverrides(intent)
         refreshServiceState()
-        requestRuntimeStartIfNeeded()
+        if (autoStartRequested) {
+            requestRuntimeStartIfNeeded(forceRestart = true)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -99,14 +90,22 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         refreshHandler.removeCallbacks(autoRefreshRunnable)
-        backgroundWorker.shutdownNow()
         super.onDestroy()
     }
 
     private fun applyIntentOverrides(intent: Intent?) {
+        val persisted = runtimeStore.load()
+        if (latestBootstrapAddress == SwarmNodeConfig.DEFAULT_BOOTSTRAP && persisted.bootstrapAddress.isNotBlank()) {
+            latestBootstrapAddress = persisted.bootstrapAddress
+        }
+        autoStartRequested = persisted.autoStart
         val requestedBootstrap = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty()
         if (requestedBootstrap.isNotBlank()) {
             latestBootstrapAddress = requestedBootstrap
+            autoStartRequested = true
+        }
+        if (intent?.getBooleanExtra(EXTRA_AUTO_START, false) == true) {
+            autoStartRequested = true
         }
     }
 
@@ -117,10 +116,6 @@ class MainActivity : AppCompatActivity() {
             refreshServiceState(snapshot)
             return
         }
-
-        if (bootstrapChanged && isRuntimeActiveState(snapshot.state)) {
-            runCatching { swarmRuntime.stop() }
-        }
         requestRuntimeStart()
     }
 
@@ -128,7 +123,9 @@ class MainActivity : AppCompatActivity() {
         val snapshot = swarmRuntime.probe()
         if (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state)) {
             isAwaitingRuntimeStart = false
-            runCatching { swarmRuntime.stop() }
+            autoStartRequested = false
+            runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress, autoStart = false))
+            GomtmForegroundService.stop(this)
             refreshServiceState()
             return
         }
@@ -137,6 +134,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestRuntimeStart() {
         isAwaitingRuntimeStart = true
+        autoStartRequested = true
+        runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress, autoStart = true))
         Log.i(LOG_TAG, "requestRuntimeStart bootstrap=$latestBootstrapAddress")
         renderServiceState(
             SwarmStatus(
@@ -149,18 +148,12 @@ class MainActivity : AppCompatActivity() {
                 rawDiscoveredPeers = "",
             ),
         )
-        runCatching {
-            swarmRuntime.start(
-                this,
-                SwarmNodeConfig(bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP }),
-            )
-            Log.i(LOG_TAG, "swarmRuntime.start returned successfully")
-        }.onFailure { error ->
-            isAwaitingRuntimeStart = false
-            Log.e(LOG_TAG, "swarmRuntime.start failed", error)
-            renderServiceState(SwarmStatus.missing(error.message ?: error.javaClass.simpleName))
-            return
-        }
+        GomtmForegroundService.start(
+            context = this,
+            bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
+            autoStart = true,
+            forceRestart = true,
+        )
         refreshServiceState()
     }
 
@@ -289,6 +282,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val LOG_TAG = "GomtmMainActivity"
         private const val EXTRA_BOOTSTRAP = "bootstrap"
+        private const val EXTRA_AUTO_START = "auto_start"
         private const val REFRESH_INTERVAL_MS = 750L
     }
 }

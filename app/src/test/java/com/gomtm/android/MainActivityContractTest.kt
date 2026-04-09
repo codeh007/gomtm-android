@@ -28,6 +28,9 @@ class MainActivityContractTest {
         assertFalse("MainActivity should no longer depend on HostSettingsStore", source.contains("HostSettingsStore"))
         assertTrue("MainActivity should still render runtime state", source.contains("renderServiceState"))
         assertTrue("MainActivity should still support runtime toggling", source.contains("toggleService"))
+        assertTrue("MainActivity should accept auto_start launch contract", source.contains("EXTRA_AUTO_START"))
+        assertTrue("MainActivity should read auto_start from intent", source.contains("getBooleanExtra(EXTRA_AUTO_START"))
+        assertTrue("MainActivity should delegate runtime ownership to foreground service", source.contains("GomtmForegroundService"))
     }
 
     private fun resolveProjectPath(relative: String): Path {

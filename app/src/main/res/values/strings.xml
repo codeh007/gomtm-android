@@ -19,6 +19,9 @@
     <string name="service_action_starting">Node service is starting</string>
     <string name="surface_version_format">v%1$s</string>
     <string name="accessibility_service_label">gomtm-swarm remote control accessibility</string>
+    <string name="runtime_notification_channel">gomtm 节点运行时</string>
+    <string name="runtime_notification_title">gomtm 节点正在运行</string>
+    <string name="runtime_notification_text">保持前台服务以便冷启动后持续在线并自动重连。</string>
     <string name="screen_capture_notification_channel">gomtm 画面捕获</string>
     <string name="screen_capture_notification_title">gomtm 正在共享设备画面</string>
     <string name="screen_capture_notification_text">保持前台服务以便浏览器连续查看 Android 画面。</string>
