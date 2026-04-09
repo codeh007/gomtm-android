@@ -2,6 +2,7 @@ package com.gomtm.swarm.swarm
 
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import java.io.File
 import java.lang.reflect.InvocationTargetException
 
@@ -13,11 +14,22 @@ class SwarmRuntime(
 ) {
     fun start(context: Context, config: SwarmNodeConfig) {
         val bridge = resolveBridgeClass()
+        Log.i(LOG_TAG, "bridge class=${bridge.name} methods=${bridge.methods.joinToString { method -> method.name + method.parameterTypes.joinToString(prefix = "(", postfix = ")") { it.simpleName } }}")
         val configClass = Class.forName(configClassName, true, classLoader)
         val configInstance = configClass.getDeclaredConstructor().newInstance()
         setStringProperty(configClass, configInstance, listOf("SetBootstrapAddr", "setBootstrapAddr"), config.bootstrapAddress)
         setBooleanProperty(configClass, configInstance, listOf("SetAutoReconnect", "setAutoReconnect"), config.autoReconnect)
         val baseDir = runtimeBaseDir(context)
+        invokeStartBridge(bridge, configClass, configInstance, baseDir, config)
+    }
+
+    internal fun invokeStartBridge(
+        bridge: Class<*>,
+        configClass: Class<*>,
+        configInstance: Any,
+        baseDir: String,
+        config: SwarmNodeConfig,
+    ) {
         if (hasMethod(bridge, listOf("StartNode", "startNode"), arrayOf(String::class.java, configClass))) {
             invokeStaticByNames(
                 bridge = bridge,
@@ -44,6 +56,21 @@ class SwarmRuntime(
                 return
             }
         }
+
+		if (hasMethod(
+				bridge,
+				listOf("StartNodeWithOptions", "startNodeWithOptions"),
+				arrayOf(String::class.java, String::class.java),
+			)
+		) {
+			invokeStaticByNames(
+				bridge = bridge,
+				methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
+				args = arrayOf(baseDir, config.bootstrapAddress),
+				parameterTypes = arrayOf(String::class.java, String::class.java),
+			)
+			return
+		}
 
         throw IllegalStateException("bridge method not found: StartNode/StartNodeWithOptions")
     }
@@ -301,5 +328,6 @@ class SwarmRuntime(
     companion object {
         internal const val DEFAULT_BRIDGE_CLASS_NAME = "io.nekohasekai.p2pandroid.P2pandroid"
         internal const val DEFAULT_CONFIG_CLASS_NAME = "io.nekohasekai.p2pandroid.Config"
+        private const val LOG_TAG = "GomtmSwarmRuntime"
     }
 }

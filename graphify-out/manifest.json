@@ -1,0 +1,22 @@
+{
+  "/workspace/gomtm-android/settings.gradle.kts": 1775622178.539988,
+  "/workspace/gomtm-android/build.gradle.kts": 1774916356.2866437,
+  "/workspace/gomtm-android/app/build.gradle.kts": 1775673429.6852221,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/MainActivity.kt": 1775677080.212824,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/GomtmAccessibilityService.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/SwarmRuntime.kt": 1775677346.4505677,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/AndroidScreenStreamHost.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/DiscoveredPeer.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/ScreenCaptureService.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/AndroidRemoteControlOps.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/SwarmStatus.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/SwarmNodeConfig.kt": 1775622255.520512,
+  "/workspace/gomtm-android/app/src/main/java/com/gomtm/android/swarm/RemoteControlCommand.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/test/java/com/gomtm/android/MainActivityContractTest.kt": 1775673429.6892223,
+  "/workspace/gomtm-android/app/src/test/java/com/gomtm/android/swarm/SwarmRuntimeTest.kt": 1775677360.0106564,
+  "/workspace/gomtm-android/app/src/test/java/com/gomtm/android/swarm/RemoteControlCommandTest.kt": 1775622178.539988,
+  "/workspace/gomtm-android/app/src/test/java/com/gomtm/android/web/HostIdentityContractTest.kt": 1775622178.539988,
+  "/workspace/gomtm-android/README.md": 1775622178.539988,
+  "/workspace/gomtm-android/docs/swarm-runtime-integration.md": 1775622178.539988,
+  "/workspace/gomtm-android/docs/roadmap.md": 1774930995.9899855
+}

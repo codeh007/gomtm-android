@@ -81,6 +81,53 @@ class SwarmRuntimeTest {
         assertEquals("streaming", FakeNodeBridge.lastScreenStreamState)
     }
 
+    @Test
+    fun startSupportsTwoArgStartNodeWithOptionsBridge() {
+        val runtime = SwarmRuntime(
+            bridgeClassName = FakeTwoArgOptionsBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeTwoArgOptionsBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+		val configClass = FakeConfig::class.java
+        val configInstance = configClass.getDeclaredConstructor().newInstance()
+        configInstance.setBootstrapAddr("/ip4/127.0.0.1/tcp/4101/p2p/test")
+        configInstance.setAutoReconnect(true)
+        runtime.invokeStartBridge(
+            bridge = FakeTwoArgOptionsBridge::class.java,
+            configClass = configClass,
+            configInstance = configInstance,
+            baseDir = "/tmp/gomtm-test",
+            config = SwarmNodeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"),
+        )
+
+        assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", FakeTwoArgOptionsBridge.lastBootstrapAddr)
+    }
+
+    @Test
+    fun startSupportsThreeArgStartNodeWithOptionsBridge() {
+        val runtime = SwarmRuntime(
+            bridgeClassName = FakeThreeArgOptionsBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeThreeArgOptionsBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+        val configClass = FakeConfig::class.java
+        val configInstance = configClass.getDeclaredConstructor().newInstance()
+        configInstance.setBootstrapAddr("/ip4/127.0.0.1/tcp/4101/p2p/test")
+        configInstance.setAutoReconnect(false)
+        runtime.invokeStartBridge(
+            bridge = FakeThreeArgOptionsBridge::class.java,
+            configClass = configClass,
+            configInstance = configInstance,
+            baseDir = "/tmp/gomtm-test",
+            config = SwarmNodeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test", autoReconnect = false),
+        )
+
+        assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", FakeThreeArgOptionsBridge.lastBootstrapAddr)
+        assertEquals(false, FakeThreeArgOptionsBridge.lastAutoReconnect)
+    }
+
     class FakeConfig {
         fun setBootstrapAddr(@Suppress("UNUSED_PARAMETER") value: String) = Unit
         fun setAutoReconnect(@Suppress("UNUSED_PARAMETER") value: Boolean) = Unit
@@ -149,6 +196,38 @@ class SwarmRuntimeTest {
             fun setRemoteControlStreamState(state: String, reason: String) {
                 lastScreenStreamState = state
                 lastScreenStreamReason = reason
+            }
+        }
+    }
+
+    class FakeTwoArgOptionsBridge {
+        companion object {
+            @JvmField
+            var lastBootstrapAddr: String = ""
+
+            @JvmStatic
+            fun startNodeWithOptions(@Suppress("UNUSED_PARAMETER") baseDir: String, bootstrapAddr: String) {
+                lastBootstrapAddr = bootstrapAddr
+            }
+        }
+    }
+
+    class FakeThreeArgOptionsBridge {
+        companion object {
+            @JvmField
+            var lastBootstrapAddr: String = ""
+
+            @JvmField
+            var lastAutoReconnect: Boolean? = null
+
+            @JvmStatic
+            fun startNodeWithOptions(
+                @Suppress("UNUSED_PARAMETER") baseDir: String,
+                bootstrapAddr: String,
+                autoReconnect: Boolean,
+            ) {
+                lastBootstrapAddr = bootstrapAddr
+                lastAutoReconnect = autoReconnect
             }
         }
     }

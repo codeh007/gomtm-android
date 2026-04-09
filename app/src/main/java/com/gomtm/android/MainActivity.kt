@@ -5,6 +5,7 @@ import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.TextView
 import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
@@ -25,6 +26,17 @@ class MainActivity : AppCompatActivity() {
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
             val snapshot = swarmRuntime.probe()
+            val drainedLogs = swarmRuntime.drainLogs().trim()
+            if (drainedLogs.isNotBlank()) {
+                drainedLogs.lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .forEach { Log.i(LOG_TAG, "runtime_log: $it") }
+            }
+            Log.i(
+                LOG_TAG,
+                "probe state=${snapshot.state} peerId=${snapshot.peerId} bootstrap=${snapshot.bootstrapAddress} lastError=${snapshot.lastError}",
+            )
             if (isRuntimeActiveState(snapshot.state) && remoteControlTickRunning.compareAndSet(false, true)) {
                 backgroundWorker.execute {
                     try {
@@ -125,6 +137,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestRuntimeStart() {
         isAwaitingRuntimeStart = true
+        Log.i(LOG_TAG, "requestRuntimeStart bootstrap=$latestBootstrapAddress")
         renderServiceState(
             SwarmStatus(
                 bridgeClassName = "",
@@ -141,8 +154,10 @@ class MainActivity : AppCompatActivity() {
                 this,
                 SwarmNodeConfig(bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP }),
             )
+            Log.i(LOG_TAG, "swarmRuntime.start returned successfully")
         }.onFailure { error ->
             isAwaitingRuntimeStart = false
+            Log.e(LOG_TAG, "swarmRuntime.start failed", error)
             renderServiceState(SwarmStatus.missing(error.message ?: error.javaClass.simpleName))
             return
         }
@@ -272,6 +287,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val LOG_TAG = "GomtmMainActivity"
         private const val EXTRA_BOOTSTRAP = "bootstrap"
         private const val REFRESH_INTERVAL_MS = 750L
     }

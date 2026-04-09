@@ -12,3 +12,4 @@ build/
 keystore.properties
 app/libs/*.aar
 .tmp_scripts
+graphify-out/cache
