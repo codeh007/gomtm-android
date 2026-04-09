@@ -149,6 +149,20 @@ class SwarmRuntime(
         )
     }
 
+    fun setRemoteControlWebRTCState(state: String, topology: String, sessionId: String, reason: String) {
+        val bridge = try {
+            resolveBridgeClass()
+        } catch (_: ReflectiveOperationException) {
+            return
+        }
+        invokeOptionalByNames(
+            bridge = bridge,
+            methodNames = listOf("SetRemoteControlWebRTCState", "setRemoteControlWebRTCState"),
+            args = arrayOf(state, topology, sessionId, reason),
+            parameterTypes = arrayOf(String::class.java, String::class.java, String::class.java, String::class.java),
+        )
+    }
+
     fun remoteControlPermissionState(context: Context): RemoteControlPermissionState {
         return RemoteControlPermissionState(
             accessibility = if (GomtmAccessibilityService.isEnabled(context)) "granted" else "not_granted",
@@ -161,16 +175,36 @@ class SwarmRuntime(
         setRemoteControlPermissionState(permissionState.accessibility, permissionState.screenCapture)
         val streamState = AndroidScreenStreamHost.currentCapabilityState(context)
         setRemoteControlStreamState(streamState.state, streamState.reason.orEmpty())
+        val webRtcHost = AndroidWebRtcScreenHost.forContext(context)
+        val webRtcState = webRtcHost.currentState()
+        setRemoteControlWebRTCState(
+            webRtcState.state,
+            webRtcState.topology.orEmpty(),
+            webRtcState.sessionId.orEmpty(),
+            webRtcState.lastError.orEmpty(),
+        )
 
         processRemoteControlRequestForTest(
             requestJson = pollRemoteControlRequest(timeoutMs),
             ops = AndroidRemoteControlOps(context),
+            webRtcHost = webRtcHost,
         )
     }
 
-    internal fun processRemoteControlRequestForTest(requestJson: String, ops: RemoteControlOps) {
+    internal fun processRemoteControlRequestForTest(
+        requestJson: String,
+        ops: RemoteControlOps,
+        webRtcHost: WebRtcScreenHost = object : WebRtcScreenHost {
+            override fun start(): RemoteControlCommandResult<RemoteControlWebRtcStartPayload> =
+                RemoteControlCommandResult.Error("SB_CAPABILITY_UNAVAILABLE", "screen.webrtc.start host is not configured", false)
+
+            override fun stop() = Unit
+
+            override fun currentState(): RemoteControlWebRtcSessionState = RemoteControlWebRtcSessionState(state = "host_not_ready")
+        },
+    ) {
         val request = parseRemoteControlRequest(requestJson) ?: return
-        val response = handleRemoteControlRequest(request, ops)
+        val response = handleRemoteControlRequest(request, ops, webRtcHost)
         resolveRemoteControlResponse(encodeRemoteControlResponse(response))
     }
 

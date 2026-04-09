@@ -65,6 +65,20 @@ data class RemoteControlPermissionState(
     val screenCapture: String,
 )
 
+data class RemoteControlWebRtcStartPayload(
+    val sessionId: String,
+    val state: String,
+    val topology: String = "signaling_starting",
+    val lastError: String? = null,
+)
+
+data class RemoteControlWebRtcSessionState(
+    val state: String,
+    val topology: String? = null,
+    val sessionId: String? = null,
+    val lastError: String? = null,
+)
+
 sealed interface RemoteControlCommandResult<out T> {
     data class Success<T>(val payload: T) : RemoteControlCommandResult<T>
 
@@ -89,6 +103,14 @@ interface RemoteControlOps {
     fun inputText(text: String): RemoteControlCommandResult<RemoteControlActionPayload>
 
     fun inputKey(key: String): RemoteControlCommandResult<RemoteControlActionPayload>
+}
+
+interface WebRtcScreenHost {
+    fun start(): RemoteControlCommandResult<RemoteControlWebRtcStartPayload>
+
+    fun stop()
+
+    fun currentState(): RemoteControlWebRtcSessionState
 }
 
 fun parseRemoteControlRequest(raw: String): RemoteControlCommandRequest? {
@@ -146,6 +168,7 @@ fun deriveRemoteControlPermissionState(
 fun handleRemoteControlRequest(
     request: RemoteControlCommandRequest,
     ops: RemoteControlOps,
+    webRtcHost: WebRtcScreenHost? = null,
 ): RemoteControlCommandResponse {
     return when (request.command) {
         "screen.snapshot" -> when (val result = ops.screenSnapshot(request.params["format"]?.toString().orEmpty().ifBlank { "png" })) {
@@ -161,6 +184,21 @@ fun handleRemoteControlRequest(
         "screen.stream.stop" -> when (val result = ops.screenStreamStop()) {
             is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())
             is RemoteControlCommandResult.Error -> errorResponse(request.requestId, result)
+        }
+
+        "screen.webrtc.start" -> when (val host = webRtcHost) {
+            null -> RemoteControlCommandResponse(
+                requestId = request.requestId,
+                ok = false,
+                errorCode = "SB_CAPABILITY_UNAVAILABLE",
+                errorMessage = "screen.webrtc.start host is not configured",
+                retryable = false,
+            )
+
+            else -> when (val result = host.start()) {
+                is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())
+                is RemoteControlCommandResult.Error -> errorResponse(request.requestId, result)
+            }
         }
 
         "input.tap" -> when (val result = ops.inputTap(request.requireInt("x"), request.requireInt("y"))) {
@@ -303,4 +341,19 @@ private fun RemoteControlStreamChannelPayload.toJson(): JSONObject {
         .put("height", height)
         .put("rotation", rotation)
         .put("keyframe_required_on_start", keyframeRequiredOnStart)
+}
+
+private fun RemoteControlWebRtcStartPayload.toJson(): String {
+    return JSONObject()
+        .put("session_id", sessionId)
+        .put("state", state)
+        .apply {
+            if (!topology.isBlank()) {
+                put("topology", topology)
+            }
+            if (!lastError.isNullOrBlank()) {
+                put("last_error", lastError)
+            }
+        }
+        .toString()
 }

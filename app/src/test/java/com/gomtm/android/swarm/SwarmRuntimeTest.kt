@@ -145,6 +145,67 @@ class SwarmRuntimeTest {
     }
 
     @Test
+    fun handlesQueuedWebRtcStartRequestAndResolvesBridgeResponse() {
+        FakeNodeBridge.queuedRemoteControlRequest =
+            """{"request_id":"req-webrtc-1","command":"screen.webrtc.start","params":{}}"""
+        FakeNodeBridge.lastRemoteControlResponse = ""
+
+        val runtime = SwarmRuntime(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+        runtime.processRemoteControlRequestForTest(
+            requestJson = runtime.pollRemoteControlRequest(timeoutMs = 0),
+            ops = object : RemoteControlOps {
+                override fun screenSnapshot(format: String): RemoteControlCommandResult<RemoteControlScreenshotPayload> =
+                    RemoteControlCommandResult.Error("SB_CAPABILITY_UNAVAILABLE", "unsupported", false)
+
+                override fun screenStreamEnsure(): RemoteControlCommandResult<RemoteControlScreenStreamPayload> =
+                    RemoteControlCommandResult.Error("SB_CAPABILITY_UNAVAILABLE", "unsupported", false)
+
+                override fun screenStreamStop(): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputTap(x: Int, y: Int): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputSwipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputText(text: String): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputKey(key: String): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+            },
+            webRtcHost = object : WebRtcScreenHost {
+                override fun start(): RemoteControlCommandResult<RemoteControlWebRtcStartPayload> =
+                    RemoteControlCommandResult.Success(
+                        RemoteControlWebRtcStartPayload(
+                            sessionId = "sess-webrtc-1",
+                            state = "connecting",
+                        ),
+                    )
+
+                override fun stop() = Unit
+
+                override fun currentState(): RemoteControlWebRtcSessionState =
+                    RemoteControlWebRtcSessionState(
+                        state = "connecting",
+                        topology = "signaling_starting",
+                        sessionId = "sess-webrtc-1",
+                    )
+            },
+        )
+
+        assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("\"request_id\":\"req-webrtc-1\""))
+        assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("sess-webrtc-1"))
+        assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("connecting"))
+    }
+
+    @Test
     fun startSupportsTwoArgStartNodeWithOptionsBridge() {
         val runtime = SwarmRuntime(
             bridgeClassName = FakeTwoArgOptionsBridge::class.java.name,
