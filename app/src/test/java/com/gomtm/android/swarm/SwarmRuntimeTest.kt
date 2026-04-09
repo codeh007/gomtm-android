@@ -82,6 +82,69 @@ class SwarmRuntimeTest {
     }
 
     @Test
+    fun handlesQueuedRemoteControlRequestAndResolvesBridgeResponse() {
+        FakeNodeBridge.queuedRemoteControlRequest =
+            """{"request_id":"req-stream-42","command":"screen.stream.ensure","params":{}}"""
+        FakeNodeBridge.lastRemoteControlResponse = ""
+
+        val runtime = SwarmRuntime(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+        runtime.processRemoteControlRequestForTest(
+            requestJson = runtime.pollRemoteControlRequest(timeoutMs = 0),
+            ops = object : RemoteControlOps {
+                override fun screenSnapshot(format: String): RemoteControlCommandResult<RemoteControlScreenshotPayload> =
+                    RemoteControlCommandResult.Error("SB_CAPABILITY_UNAVAILABLE", "unsupported", false)
+
+                override fun screenStreamEnsure(): RemoteControlCommandResult<RemoteControlScreenStreamPayload> =
+                    RemoteControlCommandResult.Success(
+                        RemoteControlScreenStreamPayload(
+                            status = "streaming",
+                            resolved = RemoteControlStreamResolvedTarget(
+                                kind = "loopback_tcp",
+                                host = "127.0.0.1",
+                                port = 9200,
+                                protocolHint = "tcp",
+                                serviceHint = "android_media_projection_h264",
+                            ),
+                            channel = RemoteControlStreamChannelPayload(
+                                kind = "video_h264_annexb",
+                                framing = "length_prefixed_access_units",
+                                codec = "avc1.64001f",
+                                width = 1080,
+                                height = 1920,
+                                rotation = 0,
+                                keyframeRequiredOnStart = true,
+                            ),
+                        ),
+                    )
+
+                override fun screenStreamStop(): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputTap(x: Int, y: Int): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputSwipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Int): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputText(text: String): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+
+                override fun inputKey(key: String): RemoteControlCommandResult<RemoteControlActionPayload> =
+                    RemoteControlCommandResult.Success(RemoteControlActionPayload())
+            },
+        )
+
+        assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("\"request_id\":\"req-stream-42\""))
+        assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("\"ok\":true"))
+        assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("video_h264_annexb"))
+    }
+
+    @Test
     fun startSupportsTwoArgStartNodeWithOptionsBridge() {
         val runtime = SwarmRuntime(
             bridgeClassName = FakeTwoArgOptionsBridge::class.java.name,
@@ -150,6 +213,9 @@ class SwarmRuntimeTest {
             @JvmField
             var lastScreenStreamReason: String = ""
 
+            @JvmField
+            var queuedRemoteControlRequest: String = "{\"request_id\":\"req-1\",\"command\":\"screen.snapshot\",\"params\":{\"format\":\"png\"}}"
+
             @JvmStatic
             fun startNode(@Suppress("UNUSED_PARAMETER") baseDir: String, @Suppress("UNUSED_PARAMETER") config: FakeConfig) = Unit
 
@@ -179,7 +245,7 @@ class SwarmRuntimeTest {
 
             @JvmStatic
             fun pollRemoteControlRequest(@Suppress("UNUSED_PARAMETER") timeoutMs: Long): String =
-                "{\"request_id\":\"req-1\",\"command\":\"screen.snapshot\",\"params\":{\"format\":\"png\"}}"
+                queuedRemoteControlRequest
 
             @JvmStatic
             fun resolveRemoteControlResponse(responseJson: String) {

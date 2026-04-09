@@ -162,8 +162,15 @@ class SwarmRuntime(
         val streamState = AndroidScreenStreamHost.currentCapabilityState(context)
         setRemoteControlStreamState(streamState.state, streamState.reason.orEmpty())
 
-        val request = parseRemoteControlRequest(pollRemoteControlRequest(timeoutMs)) ?: return
-        val response = handleRemoteControlRequest(request, AndroidRemoteControlOps(context))
+        processRemoteControlRequestForTest(
+            requestJson = pollRemoteControlRequest(timeoutMs),
+            ops = AndroidRemoteControlOps(context),
+        )
+    }
+
+    internal fun processRemoteControlRequestForTest(requestJson: String, ops: RemoteControlOps) {
+        val request = parseRemoteControlRequest(requestJson) ?: return
+        val response = handleRemoteControlRequest(request, ops)
         resolveRemoteControlResponse(encodeRemoteControlResponse(response))
     }
 
