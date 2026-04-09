@@ -2,33 +2,29 @@ package com.gomtm.swarm.swarm
 
 import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NodeRuntimeStoreTest {
     @Test
-    fun persistsBootstrapAndAutoStartPreference() {
+    fun persistsBootstrapAddress() {
         val store = NodeRuntimeStore(InMemorySharedPreferences())
         store.clear()
 
-        store.save(NodeRuntimeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test", autoStart = true))
+        store.save(NodeRuntimeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"))
 
         val restored = store.load()
         assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", restored.bootstrapAddress)
-        assertTrue(restored.autoStart)
     }
 
     @Test
     fun clearsPersistedState() {
         val store = NodeRuntimeStore(InMemorySharedPreferences())
-        store.save(NodeRuntimeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test", autoStart = true))
+        store.save(NodeRuntimeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"))
 
         store.clear()
 
         val restored = store.load()
         assertEquals("", restored.bootstrapAddress)
-        assertFalse(restored.autoStart)
     }
 
     private class InMemorySharedPreferences : SharedPreferences {

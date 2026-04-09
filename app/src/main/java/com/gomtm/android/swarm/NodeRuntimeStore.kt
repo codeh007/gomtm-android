@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 
 data class NodeRuntimeConfig(
     val bootstrapAddress: String,
-    val autoStart: Boolean,
 )
 
 class NodeRuntimeStore {
@@ -22,14 +21,12 @@ class NodeRuntimeStore {
     fun load(): NodeRuntimeConfig {
         return NodeRuntimeConfig(
             bootstrapAddress = preferences.getString(KEY_BOOTSTRAP, "").orEmpty(),
-            autoStart = preferences.getBoolean(KEY_AUTO_START, false),
         )
     }
 
     fun save(config: NodeRuntimeConfig) {
         preferences.edit()
             .putString(KEY_BOOTSTRAP, config.bootstrapAddress)
-            .putBoolean(KEY_AUTO_START, config.autoStart)
             .apply()
     }
 
@@ -40,6 +37,5 @@ class NodeRuntimeStore {
     companion object {
         private const val PREFERENCES_NAME = "gomtm_node_runtime"
         private const val KEY_BOOTSTRAP = "bootstrap"
-        private const val KEY_AUTO_START = "auto_start"
     }
 }

@@ -11,13 +11,9 @@ class GomtmBootReceiver : BroadcastReceiver() {
             return
         }
         val config = NodeRuntimeStore(context).load()
-        if (!config.autoStart) {
-            return
-        }
         GomtmForegroundService.start(
             context = context,
             bootstrapAddress = config.bootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
-            autoStart = true,
             forceRestart = false,
         )
     }

@@ -62,7 +62,7 @@ class GomtmForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action ?: ACTION_START) {
             ACTION_STOP -> {
-                runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress, autoStart = false))
+                runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
                 stopRuntime()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -73,12 +73,9 @@ class GomtmForegroundService : Service() {
                 val persisted = runtimeStore.load()
                 latestBootstrapAddress = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().takeUnless { it.isNullOrEmpty() }
                     ?: persisted.bootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP }
-                val autoStart = intent?.getBooleanExtra(EXTRA_AUTO_START, persisted.autoStart) ?: persisted.autoStart
                 val forceRestart = intent?.getBooleanExtra(EXTRA_FORCE_RESTART, false) ?: false
-                runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress, autoStart = autoStart))
-                if (autoStart) {
-                    startRuntime(forceRestart)
-                }
+                runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+                startRuntime(forceRestart)
                 scheduleTicks()
             }
         }
@@ -124,7 +121,6 @@ class GomtmForegroundService : Service() {
     private fun buildNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra(EXTRA_BOOTSTRAP, latestBootstrapAddress)
-            putExtra(EXTRA_AUTO_START, true)
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -168,7 +164,6 @@ class GomtmForegroundService : Service() {
 
     companion object {
         const val EXTRA_BOOTSTRAP = "bootstrap"
-        const val EXTRA_AUTO_START = "auto_start"
         const val EXTRA_FORCE_RESTART = "force_restart"
 
         private const val ACTION_START = "com.gomtm.swarm.action.START_RUNTIME"
@@ -181,13 +176,11 @@ class GomtmForegroundService : Service() {
         fun start(
             context: Context,
             bootstrapAddress: String,
-            autoStart: Boolean,
             forceRestart: Boolean,
         ) {
             val intent = Intent(context, GomtmForegroundService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_BOOTSTRAP, bootstrapAddress)
-                putExtra(EXTRA_AUTO_START, autoStart)
                 putExtra(EXTRA_FORCE_RESTART, forceRestart)
             }
             ContextCompat.startForegroundService(context, intent)
