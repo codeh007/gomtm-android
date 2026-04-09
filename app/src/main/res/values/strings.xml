@@ -25,4 +25,5 @@
     <string name="screen_capture_notification_channel">gomtm 画面捕获</string>
     <string name="screen_capture_notification_title">gomtm 正在共享设备画面</string>
     <string name="screen_capture_notification_text">保持前台服务以便浏览器连续查看 Android 画面。</string>
+    <string name="screen_capture_permission_action">授予画面权限</string>
 </resources>

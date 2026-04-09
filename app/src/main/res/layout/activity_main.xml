@@ -91,6 +91,14 @@
                 app:strokeColor="@color/gomtm_outline_variant"
                 app:strokeWidth="1dp" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/screenCapturePermissionButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/screen_capture_permission_action" />
+
             <TextView
                 android:id="@+id/surfaceVersion"
                 android:layout_width="wrap_content"

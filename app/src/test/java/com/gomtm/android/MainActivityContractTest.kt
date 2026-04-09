@@ -17,6 +17,7 @@ class MainActivityContractTest {
         assertTrue("activity_main should expose runtime status value", layout.contains("@+id/serviceStatusValue"))
         assertTrue("activity_main should expose runtime status detail", layout.contains("@+id/serviceStatusDetail"))
         assertTrue("activity_main should expose single toggle button", layout.contains("@+id/serviceToggleButton"))
+        assertTrue("activity_main should expose screen capture permission button", layout.contains("@+id/screenCapturePermissionButton"))
     }
 
     @Test
@@ -31,6 +32,8 @@ class MainActivityContractTest {
         assertTrue("MainActivity should accept auto_start launch contract", source.contains("EXTRA_AUTO_START"))
         assertTrue("MainActivity should read auto_start from intent", source.contains("getBooleanExtra(EXTRA_AUTO_START"))
         assertTrue("MainActivity should delegate runtime ownership to foreground service", source.contains("GomtmForegroundService"))
+        assertTrue("MainActivity should request MediaProjection permission", source.contains("MediaProjectionManager"))
+        assertTrue("MainActivity should start ScreenCaptureService after permission grant", source.contains("ScreenCaptureService.startProjection"))
     }
 
     private fun resolveProjectPath(relative: String): Path {

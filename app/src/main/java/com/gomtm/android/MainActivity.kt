@@ -1,7 +1,9 @@
 package com.gomtm.swarm
 
+import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,9 +13,11 @@ import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.button.MaterialButton
 import com.gomtm.swarm.swarm.GomtmForegroundService
 import com.gomtm.swarm.swarm.NodeRuntimeStore
+import com.gomtm.swarm.swarm.ScreenCaptureService
 import com.gomtm.swarm.swarm.SwarmNodeConfig
 import com.gomtm.swarm.swarm.SwarmRuntime
 import com.gomtm.swarm.swarm.SwarmStatus
@@ -46,10 +50,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceStatusDetail: TextView
     private lateinit var versionValue: TextView
     private lateinit var serviceToggleButton: MaterialButton
+    private lateinit var screenCapturePermissionButton: MaterialButton
 
     private var isAwaitingRuntimeStart = false
     private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
     private var autoStartRequested = false
+    private val screenCapturePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            ScreenCaptureService.startProjection(this, result.resultCode, data)
+        }
+        refreshServiceState()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,9 +73,11 @@ class MainActivity : AppCompatActivity() {
         serviceStatusDetail = findViewById(R.id.serviceStatusDetail)
         versionValue = findViewById(R.id.surfaceVersion)
         serviceToggleButton = findViewById(R.id.serviceToggleButton)
+        screenCapturePermissionButton = findViewById(R.id.screenCapturePermissionButton)
 
         versionValue.text = getString(R.string.surface_version_format, BuildConfig.VERSION_NAME)
         serviceToggleButton.setOnClickListener { toggleService() }
+        screenCapturePermissionButton.setOnClickListener { requestScreenCapturePermission() }
 
         applyIntentOverrides(intent)
         refreshServiceState()
@@ -155,6 +171,11 @@ class MainActivity : AppCompatActivity() {
             forceRestart = true,
         )
         refreshServiceState()
+    }
+
+    private fun requestScreenCapturePermission() {
+        val manager = getSystemService(MediaProjectionManager::class.java) ?: return
+        screenCapturePermissionLauncher.launch(manager.createScreenCaptureIntent())
     }
 
     private fun refreshServiceState(snapshot: SwarmStatus = swarmRuntime.probe()) {
