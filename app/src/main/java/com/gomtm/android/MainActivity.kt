@@ -54,7 +54,6 @@ class MainActivity : AppCompatActivity() {
 
     private var isAwaitingRuntimeStart = false
     private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
-    private var autoStartRequested = false
     private val screenCapturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -81,9 +80,7 @@ class MainActivity : AppCompatActivity() {
 
         applyIntentOverrides(intent)
         refreshServiceState()
-        if (autoStartRequested) {
-            requestRuntimeStartIfNeeded(forceRestart = true)
-        }
+        requestRuntimeStartIfNeeded(forceRestart = false)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -114,14 +111,9 @@ class MainActivity : AppCompatActivity() {
         if (latestBootstrapAddress == SwarmNodeConfig.DEFAULT_BOOTSTRAP && persisted.bootstrapAddress.isNotBlank()) {
             latestBootstrapAddress = persisted.bootstrapAddress
         }
-        autoStartRequested = persisted.autoStart
         val requestedBootstrap = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty()
         if (requestedBootstrap.isNotBlank()) {
             latestBootstrapAddress = requestedBootstrap
-            autoStartRequested = true
-        }
-        if (intent?.getBooleanExtra(EXTRA_AUTO_START, false) == true) {
-            autoStartRequested = true
         }
     }
 
@@ -139,8 +131,7 @@ class MainActivity : AppCompatActivity() {
         val snapshot = swarmRuntime.probe()
         if (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state)) {
             isAwaitingRuntimeStart = false
-            autoStartRequested = false
-            runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress, autoStart = false))
+            runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
             GomtmForegroundService.stop(this)
             refreshServiceState()
             return
@@ -150,8 +141,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestRuntimeStart() {
         isAwaitingRuntimeStart = true
-        autoStartRequested = true
-        runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress, autoStart = true))
+        runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
         Log.i(LOG_TAG, "requestRuntimeStart bootstrap=$latestBootstrapAddress")
         renderServiceState(
             SwarmStatus(
@@ -167,7 +157,6 @@ class MainActivity : AppCompatActivity() {
         GomtmForegroundService.start(
             context = this,
             bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
-            autoStart = true,
             forceRestart = true,
         )
         refreshServiceState()
@@ -303,7 +292,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val LOG_TAG = "GomtmMainActivity"
         private const val EXTRA_BOOTSTRAP = "bootstrap"
-        private const val EXTRA_AUTO_START = "auto_start"
         private const val REFRESH_INTERVAL_MS = 750L
     }
 }
