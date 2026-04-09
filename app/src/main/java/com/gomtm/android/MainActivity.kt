@@ -1,19 +1,24 @@
 package com.gomtm.swarm
 
 import android.app.Activity
+import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.graphics.drawable.ColorDrawable
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.TextView
+import java.util.Locale
 import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.gomtm.swarm.swarm.GomtmForegroundService
 import com.gomtm.swarm.swarm.NodeRuntimeStore
@@ -21,7 +26,6 @@ import com.gomtm.swarm.swarm.ScreenCaptureService
 import com.gomtm.swarm.swarm.SwarmNodeConfig
 import com.gomtm.swarm.swarm.SwarmRuntime
 import com.gomtm.swarm.swarm.SwarmStatus
-import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = SwarmRuntime()
@@ -46,11 +50,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var serviceStatusValue: TextView
-    private lateinit var serviceStatusDetail: TextView
-    private lateinit var versionValue: TextView
+    private lateinit var runtimeSurface: View
+    private lateinit var peerSuffixValue: TextView
     private lateinit var serviceToggleButton: MaterialButton
     private lateinit var screenCapturePermissionButton: MaterialButton
+    private lateinit var versionValue: TextView
+
+    private var currentSurfaceColor: Int? = null
 
     private var isAwaitingRuntimeStart = false
     private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
@@ -68,8 +74,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        serviceStatusValue = findViewById(R.id.serviceStatusValue)
-        serviceStatusDetail = findViewById(R.id.serviceStatusDetail)
+        runtimeSurface = findViewById(R.id.runtimeSurface)
+        peerSuffixValue = findViewById(R.id.peerSuffixValue)
         versionValue = findViewById(R.id.surfaceVersion)
         serviceToggleButton = findViewById(R.id.serviceToggleButton)
         screenCapturePermissionButton = findViewById(R.id.screenCapturePermissionButton)
@@ -77,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         versionValue.text = getString(R.string.surface_version_format, BuildConfig.VERSION_NAME)
         serviceToggleButton.setOnClickListener { toggleService() }
         screenCapturePermissionButton.setOnClickListener { requestScreenCapturePermission() }
+        screenCapturePermissionButton.contentDescription = getString(R.string.screen_capture_permission_action)
 
         applyIntentOverrides(intent)
         refreshServiceState()
@@ -180,50 +187,90 @@ class MainActivity : AppCompatActivity() {
                 stateText = R.string.service_state_running,
                 detailText = detailForSnapshot(snapshot),
                 buttonContentDescription = R.string.service_action_stop,
-                badgeBackground = R.drawable.bg_status_running,
-                textColor = R.color.gomtm_status_running_text,
                 buttonIcon = R.drawable.ic_node_online,
+                surfaceBackgroundColor = R.color.gomtm_surface_live,
+                peerTextColor = R.color.gomtm_peer_suffix_live,
+                versionTextColor = R.color.gomtm_version_live,
+                buttonBackgroundColor = R.color.gomtm_shell_button_live_bg,
+                buttonIconTintColor = R.color.gomtm_shell_button_live_icon,
+                buttonStrokeColor = R.color.gomtm_shell_button_live_stroke,
+                permissionIconTintColor = R.color.gomtm_shell_button_live_icon,
+                permissionStrokeColor = R.color.gomtm_shell_button_live_stroke,
                 buttonEnabled = true,
+                peerSuffix = peerSuffixForSnapshot(snapshot),
+                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
             snapshot.state.equals("Error", ignoreCase = true) -> applyServiceState(
                 stateText = R.string.service_state_error,
                 detailText = detailForSnapshot(snapshot),
                 buttonContentDescription = R.string.service_action_start,
-                badgeBackground = R.drawable.bg_status_stopped,
-                textColor = R.color.gomtm_status_stopped_text,
                 buttonIcon = R.drawable.ic_node_offline,
+                surfaceBackgroundColor = R.color.gomtm_surface_error,
+                peerTextColor = R.color.gomtm_peer_suffix_error,
+                versionTextColor = R.color.gomtm_version_error,
+                buttonBackgroundColor = R.color.gomtm_shell_button_error_bg,
+                buttonIconTintColor = R.color.gomtm_shell_button_error_icon,
+                buttonStrokeColor = R.color.gomtm_shell_button_error_stroke,
+                permissionIconTintColor = R.color.gomtm_shell_button_error_icon,
+                permissionStrokeColor = R.color.gomtm_shell_button_error_stroke,
                 buttonEnabled = true,
+                peerSuffix = peerSuffixForSnapshot(snapshot),
+                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
             isRuntimeStartingState(snapshot.state) -> applyServiceState(
                 stateText = R.string.service_state_starting,
                 detailText = detailForSnapshot(snapshot),
                 buttonContentDescription = R.string.service_action_stop,
-                badgeBackground = R.drawable.bg_status_starting,
-                textColor = R.color.gomtm_status_starting_text,
                 buttonIcon = R.drawable.ic_node_starting,
+                surfaceBackgroundColor = R.color.gomtm_surface_dim,
+                peerTextColor = R.color.gomtm_peer_suffix_dim,
+                versionTextColor = R.color.gomtm_version_dim,
+                buttonBackgroundColor = R.color.gomtm_shell_button_dim_bg,
+                buttonIconTintColor = R.color.gomtm_shell_button_dim_icon,
+                buttonStrokeColor = R.color.gomtm_shell_button_dim_stroke,
+                permissionIconTintColor = R.color.gomtm_shell_button_dim_icon,
+                permissionStrokeColor = R.color.gomtm_shell_button_dim_stroke,
                 buttonEnabled = true,
+                peerSuffix = peerSuffixForSnapshot(snapshot),
+                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
             isAwaitingRuntimeStart -> applyServiceState(
                 stateText = R.string.service_state_starting,
                 detailText = getString(R.string.service_state_starting_detail),
                 buttonContentDescription = R.string.service_action_starting,
-                badgeBackground = R.drawable.bg_status_starting,
-                textColor = R.color.gomtm_status_starting_text,
                 buttonIcon = R.drawable.ic_node_starting,
+                surfaceBackgroundColor = R.color.gomtm_surface_dim,
+                peerTextColor = R.color.gomtm_peer_suffix_dim,
+                versionTextColor = R.color.gomtm_version_dim,
+                buttonBackgroundColor = R.color.gomtm_shell_button_dim_bg,
+                buttonIconTintColor = R.color.gomtm_shell_button_dim_icon,
+                buttonStrokeColor = R.color.gomtm_shell_button_dim_stroke,
+                permissionIconTintColor = R.color.gomtm_shell_button_dim_icon,
+                permissionStrokeColor = R.color.gomtm_shell_button_dim_stroke,
                 buttonEnabled = false,
+                peerSuffix = peerSuffixForSnapshot(snapshot),
+                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
             else -> applyServiceState(
                 stateText = R.string.service_state_stopped,
                 detailText = getString(R.string.service_state_stopped_detail),
                 buttonContentDescription = R.string.service_action_start,
-                badgeBackground = R.drawable.bg_status_stopped,
-                textColor = R.color.gomtm_status_stopped_text,
                 buttonIcon = R.drawable.ic_node_offline,
+                surfaceBackgroundColor = R.color.gomtm_surface_dim,
+                peerTextColor = R.color.gomtm_peer_suffix_dim,
+                versionTextColor = R.color.gomtm_version_dim,
+                buttonBackgroundColor = R.color.gomtm_shell_button_dim_bg,
+                buttonIconTintColor = R.color.gomtm_shell_button_dim_icon,
+                buttonStrokeColor = R.color.gomtm_shell_button_dim_stroke,
+                permissionIconTintColor = R.color.gomtm_shell_button_dim_icon,
+                permissionStrokeColor = R.color.gomtm_shell_button_dim_stroke,
                 buttonEnabled = true,
+                peerSuffix = peerSuffixForSnapshot(snapshot),
+                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
         }
     }
@@ -267,27 +314,77 @@ class MainActivity : AppCompatActivity() {
         stateText: Int,
         detailText: String,
         buttonContentDescription: Int,
-        @DrawableRes badgeBackground: Int,
-        @ColorRes textColor: Int,
+        @ColorRes surfaceBackgroundColor: Int,
+        @ColorRes peerTextColor: Int,
+        @ColorRes versionTextColor: Int,
         @DrawableRes buttonIcon: Int,
+        @ColorRes buttonBackgroundColor: Int,
+        @ColorRes buttonIconTintColor: Int,
+        @ColorRes buttonStrokeColor: Int,
+        @ColorRes permissionIconTintColor: Int,
+        @ColorRes permissionStrokeColor: Int,
         buttonEnabled: Boolean,
+        peerSuffix: String,
+        semanticPeerSuffix: String?,
     ) {
-        serviceStatusValue.text = getString(stateText)
-        serviceStatusValue.setBackgroundResource(badgeBackground)
-        serviceStatusValue.setTextColor(ContextCompat.getColor(this, textColor))
-        serviceStatusDetail.text = detailText
+        val buttonHint = getString(buttonContentDescription)
+        val stateLabel = getString(stateText)
+        peerSuffixValue.text = peerSuffix
+        peerSuffixValue.setTextColor(resolveColor(peerTextColor))
+        versionValue.setTextColor(resolveColor(versionTextColor))
+        animateSurfaceBackground(resolveColor(surfaceBackgroundColor))
         serviceToggleButton.text = ""
-        serviceToggleButton.contentDescription = getString(buttonContentDescription)
+        serviceToggleButton.contentDescription = listOfNotNull(
+            stateLabel,
+            semanticPeerSuffix,
+            detailText,
+            buttonHint,
+        ).joinToString(separator = ". ")
         serviceToggleButton.setIconResource(buttonIcon)
-        serviceToggleButton.iconTint = null
-        serviceToggleButton.backgroundTintList = ColorStateList.valueOf(
-            ContextCompat.getColor(this, R.color.surface_panel),
-        )
-        serviceToggleButton.strokeColor = ColorStateList.valueOf(
-            ContextCompat.getColor(this, R.color.gomtm_outline_variant),
-        )
+        serviceToggleButton.iconTint = ColorStateList.valueOf(resolveColor(buttonIconTintColor))
+        serviceToggleButton.backgroundTintList = ColorStateList.valueOf(resolveColor(buttonBackgroundColor))
+        serviceToggleButton.strokeColor = ColorStateList.valueOf(resolveColor(buttonStrokeColor))
         serviceToggleButton.isEnabled = buttonEnabled
+        screenCapturePermissionButton.iconTint = ColorStateList.valueOf(resolveColor(permissionIconTintColor))
+        screenCapturePermissionButton.strokeColor = ColorStateList.valueOf(resolveColor(permissionStrokeColor))
     }
+
+    private fun peerSuffixForSnapshot(snapshot: SwarmStatus): String {
+        val peerId = snapshot.peerId.trim()
+        if (peerId.isEmpty()) {
+            return getString(R.string.peer_suffix_placeholder)
+        }
+        return peerId.takeLast(8).uppercase(Locale.ROOT)
+    }
+
+    private fun semanticPeerSuffixForSnapshot(snapshot: SwarmStatus): String? {
+        val peerId = snapshot.peerId.trim()
+        if (peerId.isEmpty()) {
+            return null
+        }
+        return peerId.takeLast(8).uppercase(Locale.ROOT)
+    }
+
+    private fun animateSurfaceBackground(targetColor: Int) {
+        val startColor = currentSurfaceColor ?: (runtimeSurface.background as? ColorDrawable)?.color ?: targetColor
+        if (startColor == targetColor) {
+            runtimeSurface.setBackgroundColor(targetColor)
+            currentSurfaceColor = targetColor
+            return
+        }
+        ValueAnimator.ofArgb(startColor, targetColor).apply {
+            duration = 280L
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { animator ->
+                val color = animator.animatedValue as Int
+                runtimeSurface.setBackgroundColor(color)
+                currentSurfaceColor = color
+            }
+            start()
+        }
+    }
+
+    private fun resolveColor(@ColorRes colorRes: Int): Int = ContextCompat.getColor(this, colorRes)
 
     companion object {
         private const val LOG_TAG = "GomtmMainActivity"

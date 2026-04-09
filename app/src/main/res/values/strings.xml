@@ -1,8 +1,5 @@
 <resources>
     <string name="app_name">gomtm-swarm</string>
-    <string name="surface_title">gomtm-swarm</string>
-    <string name="surface_subtitle">Minimal Android node shell</string>
-    <string name="service_status_label">Node status</string>
     <string name="service_state_running">Online</string>
     <string name="service_state_running_detail">Swarm runtime is active.</string>
     <string name="service_state_running_detail_peer">P2P node is ready. Peer %1$s.</string>
@@ -18,6 +15,8 @@
     <string name="service_action_stop">Take node offline</string>
     <string name="service_action_starting">Node service is starting</string>
     <string name="surface_version_format">v%1$s</string>
+    <string name="peer_suffix_placeholder">........</string>
+    <string name="peer_suffix_unavailable">peer unavailable</string>
     <string name="accessibility_service_label">gomtm-swarm remote control accessibility</string>
     <string name="runtime_notification_channel">gomtm 节点运行时</string>
     <string name="runtime_notification_title">gomtm 节点正在运行</string>

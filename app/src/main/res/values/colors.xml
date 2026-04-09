@@ -13,4 +13,22 @@
     <color name="gomtm_status_starting_text">#9B5D00</color>
     <color name="gomtm_status_stopped_bg">#E8EEF7</color>
     <color name="gomtm_status_stopped_text">#3A4B63</color>
+    <color name="gomtm_surface_dim">#111A26</color>
+    <color name="gomtm_surface_live">#E3F5E9</color>
+    <color name="gomtm_surface_error">#2A1418</color>
+    <color name="gomtm_peer_suffix_dim">#EAF1FF</color>
+    <color name="gomtm_peer_suffix_live">#163326</color>
+    <color name="gomtm_peer_suffix_error">#FFDADF</color>
+    <color name="gomtm_version_dim">#98A7BC</color>
+    <color name="gomtm_version_live">#61816C</color>
+    <color name="gomtm_version_error">#D8A8AF</color>
+    <color name="gomtm_shell_button_dim_bg">#1B2838</color>
+    <color name="gomtm_shell_button_dim_icon">#EAF1FF</color>
+    <color name="gomtm_shell_button_dim_stroke">#2A3B50</color>
+    <color name="gomtm_shell_button_live_bg">#F5FCF7</color>
+    <color name="gomtm_shell_button_live_icon">#214B37</color>
+    <color name="gomtm_shell_button_live_stroke">#BCD8C5</color>
+    <color name="gomtm_shell_button_error_bg">#3B1D23</color>
+    <color name="gomtm_shell_button_error_icon">#FFDADF</color>
+    <color name="gomtm_shell_button_error_stroke">#724048</color>
 </resources>

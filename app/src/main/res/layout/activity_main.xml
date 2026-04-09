@@ -1,113 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/runtimeSurface"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface_background"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:animateLayoutChanges="true"
+    android:background="@color/gomtm_surface_dim"
+    android:foregroundGravity="center"
+    android:padding="20dp">
 
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/screenCapturePermissionButton"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_gravity="top|end"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:minHeight="0dp"
+        android:text=""
+        app:backgroundTint="@android:color/transparent"
+        app:cornerRadius="18dp"
+        app:icon="@drawable/ic_screen_share"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="20dp"
+        app:iconTint="@color/gomtm_shell_button_dim_icon"
+        app:strokeColor="@color/gomtm_shell_button_dim_stroke"
+        app:strokeWidth="1dp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        app:cardBackgroundColor="@color/surface_panel"
-        app:cardCornerRadius="28dp"
-        app:cardElevation="0dp"
-        app:strokeColor="@color/gomtm_outline_variant"
-        app:strokeWidth="1dp">
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/peerSuffixValue"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.14"
+            android:text="........"
+            android:textAllCaps="true"
+            android:textAppearance="@style/TextAppearance.Material3.DisplayLarge"
+            android:textColor="@color/gomtm_peer_suffix_dim"
+            android:textFontWeight="700" />
+    </LinearLayout>
 
-            <TextView
-                android:id="@+id/surfaceTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/surface_title"
-                android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
-                android:textColor="@color/text_primary" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/serviceToggleButton"
+        style="@style/Widget.Material3.Button"
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:layout_marginBottom="8dp"
+        android:minHeight="0dp"
+        android:text=""
+        app:backgroundTint="@color/gomtm_shell_button_dim_bg"
+        app:cornerRadius="26dp"
+        app:icon="@drawable/ic_node_offline"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="28dp"
+        app:iconTint="@color/gomtm_shell_button_dim_icon"
+        app:strokeColor="@color/gomtm_shell_button_dim_stroke"
+        app:strokeWidth="1dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/surface_subtitle"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                android:textColor="@color/text_secondary" />
+    <TextView
+        android:id="@+id/surfaceVersion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:alpha="0.72"
+        android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+        android:textColor="@color/gomtm_version_dim" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="@string/service_status_label"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-                android:textColor="@color/text_secondary" />
-
-            <TextView
-                android:id="@+id/serviceStatusValue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_status_stopped"
-                android:paddingStart="14dp"
-                android:paddingTop="6dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="6dp"
-                android:text="@string/service_state_stopped"
-                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-                android:textColor="@color/gomtm_status_stopped_text" />
-
-            <TextView
-                android:id="@+id/serviceStatusDetail"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/service_state_stopped_detail"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                android:textColor="@color/text_secondary" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/serviceToggleButton"
-                style="@style/Widget.Material3.Button"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="24dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:text=""
-                app:backgroundTint="@color/surface_panel"
-                app:cornerRadius="24dp"
-                app:icon="@drawable/ic_node_offline"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="28dp"
-                app:strokeColor="@color/gomtm_outline_variant"
-                app:strokeWidth="1dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/screenCapturePermissionButton"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/screen_capture_permission_action" />
-
-            <TextView
-                android:id="@+id/surfaceVersion"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="12dp"
-                android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-                android:textColor="@color/text_secondary" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-</LinearLayout>
+</FrameLayout>

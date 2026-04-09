@@ -14,10 +14,15 @@ class MainActivityContractTest {
 
         assertFalse("activity_main should no longer be a WebView host", layout.contains("hostWebView"))
         assertFalse("activity_main should no longer declare a root WebView", layout.contains("<WebView"))
-        assertTrue("activity_main should expose runtime status value", layout.contains("@+id/serviceStatusValue"))
-        assertTrue("activity_main should expose runtime status detail", layout.contains("@+id/serviceStatusDetail"))
+        assertFalse("activity_main should not keep redundant runtime status pill", layout.contains("@+id/serviceStatusValue"))
+        assertFalse("activity_main should not keep redundant runtime detail text", layout.contains("@+id/serviceStatusDetail"))
+        assertFalse("activity_main should not keep title copy", layout.contains("@+id/surfaceTitle"))
+        assertFalse("activity_main should not keep subtitle copy", layout.contains("surface_subtitle"))
+        assertTrue("activity_main should expose runtime surface root", layout.contains("@+id/runtimeSurface"))
+        assertTrue("activity_main should expose centered peer suffix", layout.contains("@+id/peerSuffixValue"))
         assertTrue("activity_main should expose single toggle button", layout.contains("@+id/serviceToggleButton"))
         assertTrue("activity_main should expose screen capture permission button", layout.contains("@+id/screenCapturePermissionButton"))
+        assertTrue("activity_main should keep version in the shell", layout.contains("@+id/surfaceVersion"))
     }
 
     @Test
@@ -34,6 +39,10 @@ class MainActivityContractTest {
         assertTrue("MainActivity should delegate runtime ownership to foreground service", source.contains("GomtmForegroundService"))
         assertTrue("MainActivity should request MediaProjection permission", source.contains("MediaProjectionManager"))
         assertTrue("MainActivity should start ScreenCaptureService after permission grant", source.contains("ScreenCaptureService.startProjection"))
+        assertTrue("MainActivity should animate shell background between states", source.contains("animateSurfaceBackground"))
+        assertTrue("MainActivity should project peer suffix into the center shell", source.contains("peerSuffixForSnapshot"))
+        assertTrue("MainActivity should keep placeholder out of accessibility copy", source.contains("semanticPeerSuffixForSnapshot"))
+        assertTrue("MainActivity should use locale-stable peer suffix casing", source.contains("Locale.ROOT"))
     }
 
     private fun resolveProjectPath(relative: String): Path {
