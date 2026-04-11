@@ -43,6 +43,19 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("bootstrap"))
     }
 
+    @Test
+    fun screenCaptureServiceStartsForegroundWithMediaProjectionType() {
+        val source = String(
+            Files.readAllBytes(
+                resolveProjectPath("app/src/main/java/com/gomtm/android/swarm/ScreenCaptureService.kt"),
+            ),
+        )
+
+        assertTrue(source.contains("FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION"))
+        assertTrue(source.contains("val notification = buildNotification()"))
+        assertTrue(source.contains("startForeground("))
+    }
+
     private fun resolveProjectPath(relative: String): Path {
         val candidates = listOf(
             Paths.get(relative),
