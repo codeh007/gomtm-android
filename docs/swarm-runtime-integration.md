@@ -12,9 +12,9 @@ Current contract:
 - GitHub Actions downloads the specific `gomtm-swarm-android.aar` referenced by that manifest
 - GitHub Actions verifies its SHA256 before Gradle runs
 - the app binds to the current gomtm node runtime surface
-- the app boots into an embedded HTML+JS bootstrap page inside a single WebView host
-- that bootstrap page shows real runtime state, peer id, bootstrap address, logs, permissions, and discovered peers
-- external gomtmui pages open inside the same WebView, but without keeping the host bridge exposed
+- the app boots into a compact native runtime shell owned by `MainActivity`
+- the foreground service owns runtime start/stop while the Activity renders the current runtime surface
+- the native shell exposes the current peer suffix, runtime state, shell version, and screen capture permission action
 - the APK release records which gomtm AAR version / URL / SHA256 it consumed
 
 ## Upstream gomtm requirements
@@ -63,13 +63,10 @@ The public app UI must expose:
 - start node
 - stop node
 - runtime state
-- peer id
-- bootstrap address
+- peer suffix and runtime diagnostics derived from the bound node
 - permission diagnostics
-- discovered peers list
-- last error
-- recent logs
+- native shell status cues for the foreground-service-managed runtime
 
 No part of the UI should pretend that a node is running when the bound runtime is absent or misconfigured.
 
-The Android shell must stay thin: do not reintroduce a second Activity or a parallel native form just to host swarm pages.
+The Android shell must stay thin: do not reintroduce a WebView host, a second Activity, or a parallel bootstrap form just to host swarm pages.

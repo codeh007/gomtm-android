@@ -15,10 +15,10 @@ The active architecture is:
 
 ## What this repo is responsible for
 
-- a single-Activity WebView host with an embedded bootstrap page
-- starting and stopping a real gomtm swarm node runtime
-- showing runtime state, peer id, bootstrap address, logs, permissions, and discovered peers
-- navigating from the embedded bootstrap page into external gomtmui pages inside the same WebView
+- a thin single-Activity native Android shell for the public swarm node app
+- starting and stopping a real gomtm swarm node runtime through the foreground service
+- showing the runtime surface state in the native shell, including peer suffix and permission state
+- requesting screen capture permission for the native remote pipeline
 - GitHub Actions CI and release automation
 - APK publication
 - consuming a **published, pinned** `gomtm-swarm-android.aar`
@@ -70,11 +70,11 @@ Updating that file on `main` is the canonical way to refresh CI against a newly 
 The current Android shell has been intentionally reduced to:
 
 - one `MainActivity`
-- one full-screen `WebView`
-- one embedded HTML+JS bootstrap page under `app/src/main/assets/bootstrap/`
-- one Android <-> JS host bridge for runtime control and diagnostics
+- one compact native runtime surface in `activity_main.xml`
+- one foreground-service-owned swarm runtime
+- one screen capture permission entry for native remote capabilities
 
-There is no longer a second "web console" Activity or a parallel native bootstrap form.
+There is no embedded `WebView`, no HTML bootstrap page, and no Android <-> JS host bridge in the current shell. There is also no second console Activity or parallel bootstrap form.
 
 ## Related docs
 
