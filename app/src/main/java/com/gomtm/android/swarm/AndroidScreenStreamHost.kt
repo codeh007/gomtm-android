@@ -56,10 +56,12 @@ object AndroidScreenStreamHost {
         }
     }
 
-    fun startProjection(context: Context, resultCode: Int, data: Intent) {
+    fun startProjection(context: Context, resultCode: Int, data: Intent): Boolean {
         synchronized(lock) {
             session?.stop()
-            session = ScreenStreamSession(context.applicationContext, resultCode, data).also { it.start() }
+            val nextSession = ScreenStreamSession(context.applicationContext, resultCode, data).also { it.start() }
+            session = nextSession.takeIf { it.isProjectionActive() }
+            return session != null
         }
     }
 

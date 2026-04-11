@@ -19,21 +19,33 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        ensureForeground()
         when (intent?.action) {
             ACTION_START_PROJECTION -> {
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
-                val projectionData = intent.readProjectionData() ?: return START_NOT_STICKY
-                AndroidScreenStreamHost.startProjection(this, resultCode, projectionData)
+                val projectionData = intent.readProjectionData()
+                if (projectionData == null) {
+                    stopRuntimeService()
+                    return START_NOT_STICKY
+                }
+                ensureForeground()
+                if (!AndroidScreenStreamHost.startProjection(this, resultCode, projectionData)) {
+                    stopRuntimeService()
+                    return START_NOT_STICKY
+                }
+                return START_NOT_STICKY
             }
 
             ACTION_STOP_PROJECTION -> {
                 AndroidScreenStreamHost.stopStream(this)
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                stopRuntimeService()
+                return START_NOT_STICKY
+            }
+
+            else -> {
+                stopRuntimeService()
+                return START_NOT_STICKY
             }
         }
-        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -62,6 +74,11 @@ class ScreenCaptureService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+    }
+
+    private fun stopRuntimeService() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun buildNotification(): Notification {

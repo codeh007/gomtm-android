@@ -54,6 +54,10 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION"))
         assertTrue(source.contains("val notification = buildNotification()"))
         assertTrue(source.contains("startForeground("))
+        assertTrue(source.contains("return START_NOT_STICKY"))
+        assertTrue(source.contains("projectionData == null"))
+        assertTrue(source.contains("AndroidScreenStreamHost.startProjection(this, resultCode, projectionData)"))
+        assertTrue(source.contains("stopRuntimeService()"))
     }
 
     private fun resolveProjectPath(relative: String): Path {
