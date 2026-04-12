@@ -64,6 +64,17 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("stopRuntimeService()"))
     }
 
+    @Test
+    fun releaseWorkflowProjectsTagIntoGradleVersionMetadata() {
+        val buildScript = String(Files.readAllBytes(resolveProjectPath("app/build.gradle.kts")))
+        val releaseWorkflow = String(Files.readAllBytes(resolveProjectPath(".github/workflows/release.yml")))
+
+        assertTrue(buildScript.contains("gomtmReleaseTag"))
+        assertTrue(buildScript.contains("versionCodeFrom(appVersionName)"))
+        assertTrue(releaseWorkflow.contains("GOMTM_RELEASE_TAG="))
+        assertTrue(releaseWorkflow.contains("-PgomtmReleaseTag=\"${'$'}{RELEASE_TAG}\""))
+    }
+
     private fun resolveProjectPath(relative: String): Path {
         val candidates = listOf(
             Paths.get(relative),

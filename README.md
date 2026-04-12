@@ -63,7 +63,7 @@ The committed file `app/libs/gomtm-swarm-android.json` now pins:
 - the GitHub release asset URL for the metadata asset
 - the expected SHA256
 
-Updating that file on `main` is the canonical way to refresh CI against a newly published gomtm AAR. Formal APK releases use an explicit `v*` tag or manual `Release` dispatch.
+Updating that file on `main` is the canonical way to refresh CI against a newly published gomtm AAR. Formal APK releases use an explicit `v*` tag or manual `Release` dispatch, and the Gradle app version metadata is derived from that release tag so the published APK provenance, release page, and in-app version stay aligned.
 
 ## Host shell shape
 

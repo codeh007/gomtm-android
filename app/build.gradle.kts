@@ -1,3 +1,30 @@
+val fallbackVersionName = "0.4.4-dev"
+val releaseTagPattern = Regex("""^v?(\d+)\.(\d+)\.(\d+)(?:[-+].+)?$""")
+
+fun normalizeVersionName(raw: String?): String {
+    val candidate = raw?.trim().orEmpty()
+    if (candidate.isBlank()) {
+        return fallbackVersionName
+    }
+    val match = releaseTagPattern.matchEntire(candidate)
+        ?: error("gomtm release tag must match vX.Y.Z or X.Y.Z, got: $candidate")
+    val (major, minor, patch) = match.destructured
+    return "$major.$minor.$patch"
+}
+
+fun versionCodeFrom(versionName: String): Int {
+    val match = releaseTagPattern.matchEntire(versionName)
+        ?: error("versionName must contain semver core, got: $versionName")
+    val (major, minor, patch) = match.destructured
+    return major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
+}
+
+val appVersionName = normalizeVersionName(
+    providers.gradleProperty("gomtmReleaseTag").orNull
+        ?: providers.environmentVariable("GOMTM_RELEASE_TAG").orNull,
+)
+val appVersionCode = versionCodeFrom(appVersionName)
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,8 +38,8 @@ android {
         applicationId = "com.gomtm.swarm"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 6
-        versionName = "0.4.2"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

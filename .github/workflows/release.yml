@@ -49,6 +49,7 @@ jobs:
             exit 1
           }
           echo "RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
+          echo "GOMTM_RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
 
       - name: Write provenance
         shell: bash
@@ -65,6 +66,7 @@ jobs:
               'gomtm_swarm_aar_sha256': os.environ['GOMTM_SWARM_AAR_SHA256'],
               'gomtm_swarm_metadata_url': os.environ['GOMTM_SWARM_METADATA_URL'],
               'release_tag': os.environ['RELEASE_TAG'],
+              'app_version_name': os.environ['RELEASE_TAG'].removeprefix('v'),
               'git_commit': os.environ['GITHUB_SHA'],
           }
           Path('dist/gomtm-swarm-provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
@@ -98,7 +100,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Assemble installable debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon -PgomtmReleaseTag="${RELEASE_TAG}" assembleDebug
 
       - name: Prepare named release assets
         shell: bash
