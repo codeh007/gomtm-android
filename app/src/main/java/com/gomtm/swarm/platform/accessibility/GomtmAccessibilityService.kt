@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import com.gomtm.swarm.platform.remote.RemoteControlScreenshotPayload
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date

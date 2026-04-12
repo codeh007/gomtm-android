@@ -25,12 +25,12 @@
         </activity>
 
         <service
-            android:name=".swarm.GomtmForegroundService"
+            android:name=".platform.lifecycle.GomtmForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <service
-            android:name=".swarm.GomtmAccessibilityService"
+            android:name=".platform.accessibility.GomtmAccessibilityService"
             android:exported="false"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
@@ -44,12 +44,12 @@
         </service>
 
         <service
-            android:name=".swarm.ScreenCaptureService"
+            android:name=".platform.lifecycle.ScreenCaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
 
         <receiver
-            android:name=".swarm.GomtmBootReceiver"
+            android:name=".platform.lifecycle.GomtmBootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>

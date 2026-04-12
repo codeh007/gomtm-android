@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.lifecycle
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -16,16 +16,20 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.gomtm.swarm.MainActivity
 import com.gomtm.swarm.R
+import com.gomtm.swarm.runtime.GomtmRuntimeFacade
+import com.gomtm.swarm.runtime.RuntimeLaunchConfig
+import com.gomtm.swarm.shell.NodeRuntimeConfig
+import com.gomtm.swarm.shell.NodeRuntimeStore
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 class GomtmForegroundService : Service() {
-    private val swarmRuntime = SwarmRuntime()
+    private val swarmRuntime = GomtmRuntimeFacade()
     private val runtimeStore by lazy { NodeRuntimeStore(this) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val backgroundWorker = Executors.newSingleThreadExecutor()
     private val tickRunning = AtomicBoolean(false)
-    private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
+    private var latestBootstrapAddress = RuntimeLaunchConfig.DEFAULT_BOOTSTRAP
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -72,7 +76,7 @@ class GomtmForegroundService : Service() {
             else -> {
                 val persisted = runtimeStore.load()
                 latestBootstrapAddress = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().takeUnless { it.isNullOrEmpty() }
-                    ?: persisted.bootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP }
+                    ?: persisted.bootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP }
                 val forceRestart = intent?.getBooleanExtra(EXTRA_FORCE_RESTART, false) ?: false
                 runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
                 startRuntime(forceRestart)
@@ -100,8 +104,8 @@ class GomtmForegroundService : Service() {
         Log.i(LOG_TAG, "startRuntime bootstrap=$latestBootstrapAddress forceRestart=$forceRestart")
         swarmRuntime.start(
             this,
-            SwarmNodeConfig(
-                bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
+            RuntimeLaunchConfig(
+                bootstrapAddress = latestBootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP },
                 autoReconnect = true,
             ),
         )

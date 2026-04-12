@@ -1,4 +1,15 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.runtime
+
+import com.gomtm.swarm.platform.remote.RemoteControlActionPayload
+import com.gomtm.swarm.platform.remote.RemoteControlCommandResult
+import com.gomtm.swarm.platform.remote.RemoteControlOps
+import com.gomtm.swarm.platform.remote.RemoteControlScreenStreamPayload
+import com.gomtm.swarm.platform.remote.RemoteControlScreenshotPayload
+import com.gomtm.swarm.platform.remote.RemoteControlStreamChannelPayload
+import com.gomtm.swarm.platform.remote.RemoteControlStreamResolvedTarget
+import com.gomtm.swarm.platform.remote.RemoteControlWebRtcSessionState
+import com.gomtm.swarm.platform.remote.RemoteControlWebRtcStartPayload
+import com.gomtm.swarm.platform.remote.WebRtcScreenHost
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -7,7 +18,7 @@ import org.junit.Test
 class SwarmRuntimeTest {
     @Test
     fun exposesMissingBridgeAsErrorState() {
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = "does.not.exist.Bridge",
             configClassName = FakeConfig::class.java.name,
             classLoader = javaClass.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -21,7 +32,7 @@ class SwarmRuntimeTest {
 
     @Test
     fun parsesCurrentNodeLifecycleSurface() {
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -52,7 +63,7 @@ class SwarmRuntimeTest {
 
     @Test
     fun readsRemoteControlRequestFromBridge() {
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -65,7 +76,7 @@ class SwarmRuntimeTest {
 
     @Test
     fun forwardsRemoteControlResponseAndPermissionStateToBridge() {
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -87,7 +98,7 @@ class SwarmRuntimeTest {
             """{"request_id":"req-stream-42","command":"screen.stream.ensure","params":{}}"""
         FakeNodeBridge.lastRemoteControlResponse = ""
 
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -150,7 +161,7 @@ class SwarmRuntimeTest {
             """{"request_id":"req-webrtc-1","command":"screen.webrtc.start","params":{}}"""
         FakeNodeBridge.lastRemoteControlResponse = ""
 
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -207,7 +218,7 @@ class SwarmRuntimeTest {
 
     @Test
     fun startSupportsTwoArgStartNodeWithOptionsBridge() {
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeTwoArgOptionsBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeTwoArgOptionsBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -222,7 +233,7 @@ class SwarmRuntimeTest {
             configClass = configClass,
             configInstance = configInstance,
             baseDir = "/tmp/gomtm-test",
-            config = SwarmNodeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"),
+            config = RuntimeLaunchConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"),
         )
 
         assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", FakeTwoArgOptionsBridge.lastBootstrapAddr)
@@ -230,7 +241,7 @@ class SwarmRuntimeTest {
 
     @Test
     fun startSupportsThreeArgStartNodeWithOptionsBridge() {
-        val runtime = SwarmRuntime(
+        val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeThreeArgOptionsBridge::class.java.name,
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeThreeArgOptionsBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
@@ -245,7 +256,7 @@ class SwarmRuntimeTest {
             configClass = configClass,
             configInstance = configInstance,
             baseDir = "/tmp/gomtm-test",
-            config = SwarmNodeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test", autoReconnect = false),
+            config = RuntimeLaunchConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test", autoReconnect = false),
         )
 
         assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", FakeThreeArgOptionsBridge.lastBootstrapAddr)

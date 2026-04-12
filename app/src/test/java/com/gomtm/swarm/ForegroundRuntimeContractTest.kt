@@ -17,11 +17,15 @@ class ForegroundRuntimeContractTest {
         )
         assertTrue(
             "manifest should declare a foreground runtime service",
-            manifest.contains(".swarm.GomtmForegroundService"),
+            manifest.contains(".platform.lifecycle.GomtmForegroundService"),
         )
         assertTrue(
             "manifest should declare a boot restore receiver",
-            manifest.contains(".swarm.GomtmBootReceiver"),
+            manifest.contains(".platform.lifecycle.GomtmBootReceiver"),
+        )
+        assertTrue(
+            "manifest should declare an accessibility service in the platform boundary",
+            manifest.contains(".platform.accessibility.GomtmAccessibilityService"),
         )
         assertTrue(
             "boot receiver should listen for BOOT_COMPLETED",
@@ -33,12 +37,12 @@ class ForegroundRuntimeContractTest {
     fun foregroundRuntimeServiceKeepsBootstrapAndTickLoopOutsideActivity() {
         val source = String(
             Files.readAllBytes(
-                resolveProjectPath("app/src/main/java/com/gomtm/android/swarm/GomtmForegroundService.kt"),
+                resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmForegroundService.kt"),
             ),
         )
 
         assertTrue(source.contains("START_STICKY"))
-        assertTrue(source.contains("SwarmRuntime"))
+        assertTrue(source.contains("GomtmRuntimeFacade"))
         assertTrue(source.contains("processRemoteControlTick"))
         assertTrue(source.contains("bootstrap"))
     }
@@ -47,7 +51,7 @@ class ForegroundRuntimeContractTest {
     fun screenCaptureServiceStartsForegroundWithMediaProjectionType() {
         val source = String(
             Files.readAllBytes(
-                resolveProjectPath("app/src/main/java/com/gomtm/android/swarm/ScreenCaptureService.kt"),
+                resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/ScreenCaptureService.kt"),
             ),
         )
 

@@ -1,8 +1,10 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.lifecycle
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.gomtm.swarm.runtime.RuntimeLaunchConfig
+import com.gomtm.swarm.shell.NodeRuntimeStore
 
 class GomtmBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -13,7 +15,7 @@ class GomtmBootReceiver : BroadcastReceiver() {
         val config = NodeRuntimeStore(context).load()
         GomtmForegroundService.start(
             context = context,
-            bootstrapAddress = config.bootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
+            bootstrapAddress = config.bootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP },
             forceRestart = false,
         )
     }

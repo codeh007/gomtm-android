@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.shell
 
 import android.content.SharedPreferences
 import org.junit.Assert.assertEquals

@@ -27,7 +27,7 @@ class MainActivityContractTest {
 
     @Test
     fun mainActivityDropsEmbeddedConsoleBridge() {
-        val source = String(Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/android/MainActivity.kt")))
+        val source = String(Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")))
 
         assertFalse("MainActivity should no longer import WebView", source.contains("android.webkit.WebView"))
         assertFalse("MainActivity should no longer depend on GomtmHostBridge", source.contains("GomtmHostBridge"))
@@ -36,6 +36,7 @@ class MainActivityContractTest {
         assertTrue("MainActivity should still support runtime toggling", source.contains("toggleService"))
         assertFalse("MainActivity should not expose an auto_start launch contract anymore", source.contains("EXTRA_AUTO_START"))
         assertFalse("MainActivity should no longer read auto_start from intent", source.contains("getBooleanExtra("))
+        assertTrue("MainActivity should consume runtime facade instead of old swarm runtime class", source.contains("GomtmRuntimeFacade"))
         assertTrue("MainActivity should delegate runtime ownership to foreground service", source.contains("GomtmForegroundService"))
         assertTrue("MainActivity should request MediaProjection permission", source.contains("MediaProjectionManager"))
         assertTrue("MainActivity should start ScreenCaptureService after permission grant", source.contains("ScreenCaptureService.startProjection"))

@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.remote
 
 import org.json.JSONObject
 

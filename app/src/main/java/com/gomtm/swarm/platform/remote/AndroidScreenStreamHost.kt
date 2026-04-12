@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.remote
 
 import android.content.Context
 import android.content.Intent
@@ -21,6 +21,7 @@ import java.net.Socket
 import java.nio.ByteBuffer
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
 import kotlin.math.max
 
 object AndroidScreenStreamHost {

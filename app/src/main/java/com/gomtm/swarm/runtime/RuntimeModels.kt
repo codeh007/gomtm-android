@@ -1,6 +1,15 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.runtime
 
 import org.json.JSONObject
+
+data class RuntimeLaunchConfig(
+    val bootstrapAddress: String,
+    val autoReconnect: Boolean = true,
+) {
+    companion object {
+        const val DEFAULT_BOOTSTRAP = "/ip4/156.225.19.101/tcp/4101/p2p/12D3KooWEToGF72k9jypWMPFkwiofuedYrEGZKHNPfKEP2Cg68Cj"
+    }
+}
 
 data class DiscoveredPeer(
     val peerId: String,
@@ -39,5 +48,27 @@ data class DiscoveredPeer(
                 }
             }.getOrDefault(emptyList())
         }
+    }
+}
+
+data class RuntimeSnapshot(
+    val bridgeClassName: String,
+    val state: String,
+    val peerId: String,
+    val bootstrapAddress: String,
+    val lastError: String,
+    val discoveredPeers: List<DiscoveredPeer>,
+    val rawDiscoveredPeers: String,
+) {
+    companion object {
+        fun missing(message: String): RuntimeSnapshot = RuntimeSnapshot(
+            bridgeClassName = "",
+            state = "Error",
+            peerId = "",
+            bootstrapAddress = "",
+            lastError = message,
+            discoveredPeers = emptyList(),
+            rawDiscoveredPeers = "",
+        )
     }
 }

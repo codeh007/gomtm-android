@@ -1,18 +1,30 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.runtime
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
+import com.gomtm.swarm.platform.accessibility.GomtmAccessibilityService
+import com.gomtm.swarm.platform.remote.AndroidRemoteControlOps
+import com.gomtm.swarm.platform.remote.AndroidScreenStreamHost
+import com.gomtm.swarm.platform.remote.AndroidWebRtcScreenHost
+import com.gomtm.swarm.platform.remote.RemoteControlCommandResult
+import com.gomtm.swarm.platform.remote.RemoteControlOps
+import com.gomtm.swarm.platform.remote.RemoteControlPermissionState
+import com.gomtm.swarm.platform.remote.RemoteControlWebRtcSessionState
+import com.gomtm.swarm.platform.remote.RemoteControlWebRtcStartPayload
+import com.gomtm.swarm.platform.remote.WebRtcScreenHost
+import com.gomtm.swarm.platform.remote.encodeRemoteControlResponse
+import com.gomtm.swarm.platform.remote.handleRemoteControlRequest
+import com.gomtm.swarm.platform.remote.parseRemoteControlRequest
 import java.io.File
 import java.lang.reflect.InvocationTargetException
 
-class SwarmRuntime(
+class GomtmRuntimeFacade(
     private val bridgeClassName: String = DEFAULT_BRIDGE_CLASS_NAME,
     private val configClassName: String = DEFAULT_CONFIG_CLASS_NAME,
-    private val classLoader: ClassLoader = SwarmRuntime::class.java.classLoader
+    private val classLoader: ClassLoader = GomtmRuntimeFacade::class.java.classLoader
         ?: ClassLoader.getSystemClassLoader(),
 ) {
-    fun start(context: Context, config: SwarmNodeConfig) {
+    fun start(context: Context, config: RuntimeLaunchConfig) {
         val bridge = resolveBridgeClass()
         Log.i(LOG_TAG, "bridge class=${bridge.name} methods=${bridge.methods.joinToString { method -> method.name + method.parameterTypes.joinToString(prefix = "(", postfix = ")") { it.simpleName } }}")
         val configClass = Class.forName(configClassName, true, classLoader)
@@ -28,7 +40,7 @@ class SwarmRuntime(
         configClass: Class<*>,
         configInstance: Any,
         baseDir: String,
-        config: SwarmNodeConfig,
+        config: RuntimeLaunchConfig,
     ) {
         if (hasMethod(bridge, listOf("StartNode", "startNode"), arrayOf(String::class.java, configClass))) {
             invokeStaticByNames(
@@ -208,15 +220,15 @@ class SwarmRuntime(
         resolveRemoteControlResponse(encodeRemoteControlResponse(response))
     }
 
-    fun probe(): SwarmStatus {
+    fun probe(): RuntimeSnapshot {
         val bridge = try {
             resolveBridgeClass()
         } catch (error: ReflectiveOperationException) {
-            return SwarmStatus.missing("gomtm swarm bridge unavailable: ${error.message ?: error.javaClass.simpleName}")
+            return RuntimeSnapshot.missing("gomtm swarm bridge unavailable: ${error.message ?: error.javaClass.simpleName}")
         }
 
         val rawDiscoveredPeers = invokeStringByNames(bridge, "GetDiscoveredPeers", "getDiscoveredPeers")
-        return SwarmStatus(
+        return RuntimeSnapshot(
             bridgeClassName = bridge.name,
             state = invokeStringByNames(bridge, "GetState", "getState").ifBlank { "Unknown" },
             peerId = invokeStringByNames(bridge, "GetPeerID", "GetPeerId", "getPeerID", "getPeerId"),

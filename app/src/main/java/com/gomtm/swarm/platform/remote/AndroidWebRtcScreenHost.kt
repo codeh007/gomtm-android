@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.remote
 
 import android.content.Context
 import java.util.UUID

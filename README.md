@@ -74,6 +74,13 @@ The current Android shell has been intentionally reduced to:
 - one foreground-service-owned swarm runtime
 - one screen capture permission entry for native remote capabilities
 
+Current package boundaries:
+
+- `com.gomtm.swarm.runtime` only hosts the thin AAR runtime facade and shell-facing DTOs
+- `com.gomtm.swarm.platform.*` only hosts Android native components and device capability adapters
+- `com.gomtm.swarm.shell` only hosts local shell persistence
+- the old catch-all `com.gomtm.swarm.swarm` package is no longer the canonical source layout
+
 There is no embedded `WebView`, no HTML bootstrap page, and no Android <-> JS host bridge in the current shell. There is also no second console Activity or parallel bootstrap form.
 
 ## Related docs

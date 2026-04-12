@@ -20,15 +20,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
-import com.gomtm.swarm.swarm.GomtmForegroundService
-import com.gomtm.swarm.swarm.NodeRuntimeStore
-import com.gomtm.swarm.swarm.ScreenCaptureService
-import com.gomtm.swarm.swarm.SwarmNodeConfig
-import com.gomtm.swarm.swarm.SwarmRuntime
-import com.gomtm.swarm.swarm.SwarmStatus
+import com.gomtm.swarm.platform.lifecycle.GomtmForegroundService
+import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
+import com.gomtm.swarm.runtime.GomtmRuntimeFacade
+import com.gomtm.swarm.runtime.RuntimeLaunchConfig
+import com.gomtm.swarm.runtime.RuntimeSnapshot
+import com.gomtm.swarm.shell.NodeRuntimeConfig
+import com.gomtm.swarm.shell.NodeRuntimeStore
 
 class MainActivity : AppCompatActivity() {
-    private val swarmRuntime = SwarmRuntime()
+    private val swarmRuntime = GomtmRuntimeFacade()
     private val runtimeStore by lazy { NodeRuntimeStore(this) }
     private val refreshHandler = Handler(Looper.getMainLooper())
     private val autoRefreshRunnable = object : Runnable {
@@ -59,7 +60,7 @@ class MainActivity : AppCompatActivity() {
     private var currentSurfaceColor: Int? = null
 
     private var isAwaitingRuntimeStart = false
-    private var latestBootstrapAddress = SwarmNodeConfig.DEFAULT_BOOTSTRAP
+    private var latestBootstrapAddress = RuntimeLaunchConfig.DEFAULT_BOOTSTRAP
     private val screenCapturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -115,7 +116,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyIntentOverrides(intent: Intent?) {
         val persisted = runtimeStore.load()
-        if (latestBootstrapAddress == SwarmNodeConfig.DEFAULT_BOOTSTRAP && persisted.bootstrapAddress.isNotBlank()) {
+        if (latestBootstrapAddress == RuntimeLaunchConfig.DEFAULT_BOOTSTRAP && persisted.bootstrapAddress.isNotBlank()) {
             latestBootstrapAddress = persisted.bootstrapAddress
         }
         val requestedBootstrap = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty()
@@ -138,7 +139,7 @@ class MainActivity : AppCompatActivity() {
         val snapshot = swarmRuntime.probe()
         if (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state)) {
             isAwaitingRuntimeStart = false
-            runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+            runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
             GomtmForegroundService.stop(this)
             refreshServiceState()
             return
@@ -148,10 +149,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestRuntimeStart() {
         isAwaitingRuntimeStart = true
-        runtimeStore.save(com.gomtm.swarm.swarm.NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+        runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
         Log.i(LOG_TAG, "requestRuntimeStart bootstrap=$latestBootstrapAddress")
         renderServiceState(
-            SwarmStatus(
+            RuntimeSnapshot(
                 bridgeClassName = "",
                 state = "Starting",
                 peerId = "",
@@ -163,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         )
         GomtmForegroundService.start(
             context = this,
-            bootstrapAddress = latestBootstrapAddress.ifBlank { SwarmNodeConfig.DEFAULT_BOOTSTRAP },
+            bootstrapAddress = latestBootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP },
             forceRestart = true,
         )
         refreshServiceState()
@@ -174,14 +175,14 @@ class MainActivity : AppCompatActivity() {
         screenCapturePermissionLauncher.launch(manager.createScreenCaptureIntent())
     }
 
-    private fun refreshServiceState(snapshot: SwarmStatus = swarmRuntime.probe()) {
+    private fun refreshServiceState(snapshot: RuntimeSnapshot = swarmRuntime.probe()) {
         if (isRuntimeActiveState(snapshot.state)) {
             isAwaitingRuntimeStart = false
         }
         renderServiceState(snapshot)
     }
 
-    private fun renderServiceState(snapshot: SwarmStatus) {
+    private fun renderServiceState(snapshot: RuntimeSnapshot) {
         when {
             isRuntimeActiveState(snapshot.state) -> applyServiceState(
                 stateText = R.string.service_state_running,
@@ -275,7 +276,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun detailForSnapshot(snapshot: SwarmStatus): String {
+    private fun detailForSnapshot(snapshot: RuntimeSnapshot): String {
         return when {
             isRuntimeActiveState(snapshot.state) && snapshot.peerId.isNotBlank() -> getString(
                 R.string.service_state_running_detail_peer,
@@ -349,7 +350,7 @@ class MainActivity : AppCompatActivity() {
         screenCapturePermissionButton.strokeColor = ColorStateList.valueOf(resolveColor(permissionStrokeColor))
     }
 
-    private fun peerSuffixForSnapshot(snapshot: SwarmStatus): String {
+    private fun peerSuffixForSnapshot(snapshot: RuntimeSnapshot): String {
         val peerId = snapshot.peerId.trim()
         if (peerId.isEmpty()) {
             return getString(R.string.peer_suffix_placeholder)
@@ -357,7 +358,7 @@ class MainActivity : AppCompatActivity() {
         return peerId.takeLast(8).uppercase(Locale.ROOT)
     }
 
-    private fun semanticPeerSuffixForSnapshot(snapshot: SwarmStatus): String? {
+    private fun semanticPeerSuffixForSnapshot(snapshot: RuntimeSnapshot): String? {
         val peerId = snapshot.peerId.trim()
         if (peerId.isEmpty()) {
             return null

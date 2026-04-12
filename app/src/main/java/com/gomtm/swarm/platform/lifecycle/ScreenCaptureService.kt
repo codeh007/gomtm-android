@@ -1,4 +1,4 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.lifecycle
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.gomtm.swarm.MainActivity
 import com.gomtm.swarm.R
+import com.gomtm.swarm.platform.remote.AndroidScreenStreamHost
 
 class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null

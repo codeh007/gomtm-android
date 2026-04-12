@@ -1,7 +1,8 @@
-package com.gomtm.swarm.swarm
+package com.gomtm.swarm.platform.remote
 
 import android.content.Context
 import android.os.Build
+import com.gomtm.swarm.platform.accessibility.GomtmAccessibilityService
 
 class AndroidRemoteControlOps(
     private val context: Context,
