@@ -3,6 +3,7 @@ package com.gomtm.swarm
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,6 +46,20 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("GomtmRuntimeFacade"))
         assertTrue(source.contains("processRemoteControlTick"))
         assertTrue(source.contains("bootstrap"))
+        assertTrue(source.contains("bootstrap is blank"))
+        assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
+    }
+
+    @Test
+    fun bootReceiverOnlyRestoresRuntimeWhenBootstrapWasPersisted() {
+        val source = String(
+            Files.readAllBytes(
+                resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmBootReceiver.kt"),
+            ),
+        )
+
+        assertTrue(source.contains("config.bootstrapAddress.isBlank()"))
+        assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 
     @Test

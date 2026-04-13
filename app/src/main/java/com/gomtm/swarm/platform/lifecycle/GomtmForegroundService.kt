@@ -29,7 +29,7 @@ class GomtmForegroundService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val backgroundWorker = Executors.newSingleThreadExecutor()
     private val tickRunning = AtomicBoolean(false)
-    private var latestBootstrapAddress = RuntimeLaunchConfig.DEFAULT_BOOTSTRAP
+    private var latestBootstrapAddress = ""
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -76,7 +76,7 @@ class GomtmForegroundService : Service() {
             else -> {
                 val persisted = runtimeStore.load()
                 latestBootstrapAddress = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().takeUnless { it.isNullOrEmpty() }
-                    ?: persisted.bootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP }
+                    ?: persisted.bootstrapAddress
                 val forceRestart = intent?.getBooleanExtra(EXTRA_FORCE_RESTART, false) ?: false
                 runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
                 startRuntime(forceRestart)
@@ -93,6 +93,10 @@ class GomtmForegroundService : Service() {
     }
 
     private fun startRuntime(forceRestart: Boolean) {
+        if (latestBootstrapAddress.isBlank()) {
+            Log.w(LOG_TAG, "startRuntime skipped: bootstrap is blank")
+            return
+        }
         val snapshot = swarmRuntime.probe()
         val bootstrapChanged = latestBootstrapAddress.isNotBlank() && latestBootstrapAddress != snapshot.bootstrapAddress
         if ((forceRestart || bootstrapChanged) && (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state))) {
@@ -105,7 +109,7 @@ class GomtmForegroundService : Service() {
         swarmRuntime.start(
             this,
             RuntimeLaunchConfig(
-                bootstrapAddress = latestBootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP },
+                bootstrapAddress = latestBootstrapAddress,
                 autoReconnect = true,
             ),
         )

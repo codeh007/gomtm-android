@@ -44,6 +44,8 @@ class MainActivityContractTest {
         assertTrue("MainActivity should project peer suffix into the center shell", source.contains("peerSuffixForSnapshot"))
         assertTrue("MainActivity should keep placeholder out of accessibility copy", source.contains("semanticPeerSuffixForSnapshot"))
         assertTrue("MainActivity should use locale-stable peer suffix casing", source.contains("Locale.ROOT"))
+        assertFalse("MainActivity should not keep a default bootstrap fallback", source.contains("DEFAULT_BOOTSTRAP"))
+        assertTrue("MainActivity should refuse blank bootstrap starts", source.contains("bootstrap is blank"))
     }
 
     private fun resolveProjectPath(relative: String): Path {

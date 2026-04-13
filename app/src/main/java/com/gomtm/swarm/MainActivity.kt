@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
     private var currentSurfaceColor: Int? = null
 
     private var isAwaitingRuntimeStart = false
-    private var latestBootstrapAddress = RuntimeLaunchConfig.DEFAULT_BOOTSTRAP
+    private var latestBootstrapAddress = ""
     private val screenCapturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -116,7 +116,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyIntentOverrides(intent: Intent?) {
         val persisted = runtimeStore.load()
-        if (latestBootstrapAddress == RuntimeLaunchConfig.DEFAULT_BOOTSTRAP && persisted.bootstrapAddress.isNotBlank()) {
+        if (latestBootstrapAddress.isBlank() && persisted.bootstrapAddress.isNotBlank()) {
             latestBootstrapAddress = persisted.bootstrapAddress
         }
         val requestedBootstrap = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty()
@@ -148,6 +148,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestRuntimeStart() {
+        if (latestBootstrapAddress.isBlank()) {
+            isAwaitingRuntimeStart = false
+            Log.w(LOG_TAG, "requestRuntimeStart skipped: bootstrap is blank")
+            refreshServiceState(RuntimeSnapshot.missing("bootstrap is required"))
+            return
+        }
         isAwaitingRuntimeStart = true
         runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
         Log.i(LOG_TAG, "requestRuntimeStart bootstrap=$latestBootstrapAddress")
@@ -164,7 +170,7 @@ class MainActivity : AppCompatActivity() {
         )
         GomtmForegroundService.start(
             context = this,
-            bootstrapAddress = latestBootstrapAddress.ifBlank { RuntimeLaunchConfig.DEFAULT_BOOTSTRAP },
+            bootstrapAddress = latestBootstrapAddress,
             forceRestart = true,
         )
         refreshServiceState()
