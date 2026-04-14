@@ -1,8 +1,10 @@
 package com.gomtm.swarm.runtime
 
 import com.gomtm.swarm.platform.remote.RemoteControlActionPayload
+import com.gomtm.swarm.platform.remote.RemoteControlCapabilityState
 import com.gomtm.swarm.platform.remote.RemoteControlCommandResult
 import com.gomtm.swarm.platform.remote.RemoteControlOps
+import com.gomtm.swarm.platform.remote.RemoteControlPermissionState
 import com.gomtm.swarm.platform.remote.RemoteControlScreenStreamPayload
 import com.gomtm.swarm.platform.remote.RemoteControlScreenshotPayload
 import com.gomtm.swarm.platform.remote.RemoteControlStreamChannelPayload
@@ -85,11 +87,40 @@ class SwarmRuntimeTest {
         runtime.resolveRemoteControlResponse("{\"request_id\":\"req-1\",\"ok\":true}")
         runtime.setRemoteControlPermissionState("granted", "unsupported")
         runtime.setRemoteControlStreamState("streaming", "")
+        runtime.setRemoteControlWebRTCState("connecting", "signaling_starting", "sess-webrtc-1", "")
 
         assertEquals("{\"request_id\":\"req-1\",\"ok\":true}", FakeNodeBridge.lastRemoteControlResponse)
         assertEquals("granted", FakeNodeBridge.lastAccessibilityPermission)
         assertEquals("unsupported", FakeNodeBridge.lastScreenCapturePermission)
         assertEquals("streaming", FakeNodeBridge.lastScreenStreamState)
+        assertEquals("connecting", FakeNodeBridge.lastScreenWebRtcState)
+        assertEquals("signaling_starting", FakeNodeBridge.lastScreenWebRtcTopology)
+        assertEquals("sess-webrtc-1", FakeNodeBridge.lastScreenWebRtcSessionId)
+    }
+
+    @Test
+    fun publishesIdleDeviceOwnedWebRtcSessionAsAvailableCapability() {
+        FakeNodeBridge.lastScreenWebRtcState = ""
+        FakeNodeBridge.lastScreenWebRtcTopology = "stale"
+        FakeNodeBridge.lastScreenWebRtcSessionId = "stale"
+        FakeNodeBridge.lastScreenWebRtcReason = "stale"
+
+        val runtime = GomtmRuntimeFacade(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+
+        runtime.publishRemoteControlTickForTest(
+            permissionState = RemoteControlPermissionState(accessibility = "granted", screenCapture = "granted"),
+            streamState = RemoteControlCapabilityState(state = "streaming"),
+            webRtcSessionState = RemoteControlWebRtcSessionState(state = "idle"),
+        )
+
+        assertEquals("available", FakeNodeBridge.lastScreenWebRtcState)
+        assertEquals("", FakeNodeBridge.lastScreenWebRtcTopology)
+        assertEquals("", FakeNodeBridge.lastScreenWebRtcSessionId)
+        assertEquals("", FakeNodeBridge.lastScreenWebRtcReason)
     }
 
     @Test
@@ -286,6 +317,18 @@ class SwarmRuntimeTest {
             var lastScreenStreamReason: String = ""
 
             @JvmField
+            var lastScreenWebRtcState: String = ""
+
+            @JvmField
+            var lastScreenWebRtcTopology: String = ""
+
+            @JvmField
+            var lastScreenWebRtcSessionId: String = ""
+
+            @JvmField
+            var lastScreenWebRtcReason: String = ""
+
+            @JvmField
             var queuedRemoteControlRequest: String = "{\"request_id\":\"req-1\",\"command\":\"screen.snapshot\",\"params\":{\"format\":\"png\"}}"
 
             @JvmStatic
@@ -334,6 +377,14 @@ class SwarmRuntimeTest {
             fun setRemoteControlStreamState(state: String, reason: String) {
                 lastScreenStreamState = state
                 lastScreenStreamReason = reason
+            }
+
+            @JvmStatic
+            fun setRemoteControlWebRTCState(state: String, topology: String, sessionId: String, reason: String) {
+                lastScreenWebRtcState = state
+                lastScreenWebRtcTopology = topology
+                lastScreenWebRtcSessionId = sessionId
+                lastScreenWebRtcReason = reason
             }
         }
     }

@@ -1,11 +1,26 @@
 package com.gomtm.swarm.platform.remote
 
+import android.content.Context
+import android.content.ContextWrapper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RemoteControlCommandTest {
+    @Test
+    fun webRtcSessionTruthStartsIdleInsteadOfPlaceholderState() {
+        val state = AndroidWebRtcScreenHost.forContext(FakeContext()).currentState()
+
+        assertEquals("idle", state.state)
+        assertTrue(state.topology.isNullOrBlank())
+        assertTrue(state.sessionId.isNullOrBlank())
+    }
+
+    private class FakeContext : ContextWrapper(null) {
+        override fun getApplicationContext(): Context = this
+    }
+
     @Test
     fun parsesScreenSnapshotRequest() {
         val request = parseRemoteControlRequest(

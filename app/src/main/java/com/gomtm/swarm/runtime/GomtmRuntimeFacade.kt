@@ -6,6 +6,7 @@ import com.gomtm.swarm.platform.accessibility.GomtmAccessibilityService
 import com.gomtm.swarm.platform.remote.AndroidRemoteControlOps
 import com.gomtm.swarm.platform.remote.AndroidScreenStreamHost
 import com.gomtm.swarm.platform.remote.AndroidWebRtcScreenHost
+import com.gomtm.swarm.platform.remote.RemoteControlCapabilityState
 import com.gomtm.swarm.platform.remote.RemoteControlCommandResult
 import com.gomtm.swarm.platform.remote.RemoteControlOps
 import com.gomtm.swarm.platform.remote.RemoteControlPermissionState
@@ -184,22 +185,34 @@ class GomtmRuntimeFacade(
 
     fun processRemoteControlTick(context: Context, timeoutMs: Int = 0) {
         val permissionState = remoteControlPermissionState(context)
-        setRemoteControlPermissionState(permissionState.accessibility, permissionState.screenCapture)
         val streamState = AndroidScreenStreamHost.currentCapabilityState(context)
-        setRemoteControlStreamState(streamState.state, streamState.reason.orEmpty())
         val webRtcHost = AndroidWebRtcScreenHost.forContext(context)
-        val webRtcState = webRtcHost.currentState()
-        setRemoteControlWebRTCState(
-            webRtcState.state,
-            webRtcState.topology.orEmpty(),
-            webRtcState.sessionId.orEmpty(),
-            webRtcState.lastError.orEmpty(),
+        publishRemoteControlTickForTest(
+            permissionState = permissionState,
+            streamState = streamState,
+            webRtcSessionState = webRtcHost.currentState(),
         )
 
         processRemoteControlRequestForTest(
             requestJson = pollRemoteControlRequest(timeoutMs),
             ops = AndroidRemoteControlOps(context),
             webRtcHost = webRtcHost,
+        )
+    }
+
+    internal fun publishRemoteControlTickForTest(
+        permissionState: RemoteControlPermissionState,
+        streamState: RemoteControlCapabilityState,
+        webRtcSessionState: RemoteControlWebRtcSessionState,
+    ) {
+        setRemoteControlPermissionState(permissionState.accessibility, permissionState.screenCapture)
+        setRemoteControlStreamState(streamState.state, streamState.reason.orEmpty())
+        val webRtcState = projectRemoteControlWebRtcBridgeState(streamState, webRtcSessionState)
+        setRemoteControlWebRTCState(
+            webRtcState.state,
+            webRtcState.topology.orEmpty(),
+            webRtcState.sessionId.orEmpty(),
+            webRtcState.lastError.orEmpty(),
         )
     }
 
@@ -383,4 +396,103 @@ class GomtmRuntimeFacade(
         internal const val DEFAULT_CONFIG_CLASS_NAME = "io.nekohasekai.p2pandroid.Config"
         private const val LOG_TAG = "GomtmSwarmRuntime"
     }
+}
+
+internal fun projectRemoteControlWebRtcBridgeState(
+    streamState: RemoteControlCapabilityState,
+    sessionState: RemoteControlWebRtcSessionState,
+): RemoteControlWebRtcSessionState {
+    val streamCapabilityState = normalizeRemoteControlState(streamState.state)
+    val streamReason = trimRemoteControlText(streamState.reason)
+    val sessionLifecycleState = normalizeRemoteControlState(sessionState.state)
+    val sessionId = trimRemoteControlText(sessionState.sessionId)
+    val topology = trimRemoteControlText(sessionState.topology)
+    val sessionReason = trimRemoteControlText(sessionState.lastError)
+    if (sessionId != null) {
+        return when (sessionLifecycleState) {
+            "connecting", "connected", "ready", "active" -> RemoteControlWebRtcSessionState(
+                state = sessionLifecycleState,
+                topology = topology ?: "signaling_starting",
+                sessionId = sessionId,
+                lastError = sessionReason ?: streamReason,
+            )
+
+            "error" -> RemoteControlWebRtcSessionState(
+                state = "error",
+                topology = topology ?: "signaling_starting",
+                sessionId = sessionId,
+                lastError = sessionReason ?: streamReason,
+            )
+
+            "permission_required" -> RemoteControlWebRtcSessionState(
+                state = "permission_required",
+                lastError = sessionReason ?: streamReason ?: "screen_capture_not_granted",
+            )
+
+            "unavailable" -> RemoteControlWebRtcSessionState(
+                state = "unavailable",
+                lastError = sessionReason ?: streamReason ?: "unsupported",
+            )
+
+            else -> RemoteControlWebRtcSessionState(
+                state = "host_not_ready",
+                topology = topology ?: "signaling_starting",
+                sessionId = sessionId,
+                lastError = sessionReason ?: streamReason ?: "awaiting_stream_runtime",
+            )
+        }
+    }
+
+    return when (sessionLifecycleState) {
+        "error" -> RemoteControlWebRtcSessionState(
+            state = "error",
+            lastError = sessionReason ?: streamReason,
+        )
+
+        "permission_required" -> RemoteControlWebRtcSessionState(
+            state = "permission_required",
+            lastError = sessionReason ?: streamReason ?: "screen_capture_not_granted",
+        )
+
+        "unavailable" -> RemoteControlWebRtcSessionState(
+            state = "unavailable",
+            lastError = sessionReason ?: streamReason ?: "unsupported",
+        )
+
+        "host_not_ready" -> RemoteControlWebRtcSessionState(
+            state = "host_not_ready",
+            lastError = sessionReason ?: streamReason ?: "awaiting_stream_runtime",
+        )
+
+        else -> when (streamCapabilityState) {
+            "available", "streaming" -> RemoteControlWebRtcSessionState(state = "available")
+            "permission_required" -> RemoteControlWebRtcSessionState(
+                state = "permission_required",
+                lastError = streamReason ?: "screen_capture_not_granted",
+            )
+
+            "unavailable" -> RemoteControlWebRtcSessionState(
+                state = "unavailable",
+                lastError = streamReason ?: "unsupported",
+            )
+
+            "error" -> RemoteControlWebRtcSessionState(
+                state = "error",
+                lastError = streamReason,
+            )
+
+            else -> RemoteControlWebRtcSessionState(
+                state = "host_not_ready",
+                lastError = streamReason ?: "awaiting_stream_runtime",
+            )
+        }
+    }
+}
+
+private fun normalizeRemoteControlState(value: String?): String? {
+    return value?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+}
+
+private fun trimRemoteControlText(value: String?): String? {
+    return value?.trim()?.takeIf { it.isNotEmpty() }
 }
