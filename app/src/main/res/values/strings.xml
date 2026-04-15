@@ -14,6 +14,23 @@
     <string name="service_action_start">Bring node online</string>
     <string name="service_action_stop">Take node offline</string>
     <string name="service_action_starting">Node service is starting</string>
+    <string name="advanced_menu_action">更多操作</string>
+    <string name="service_state_unconfigured">未配置</string>
+    <string name="service_state_connecting">连接中</string>
+    <string name="service_state_ready">已连接</string>
+    <string name="service_hint_unconfigured">等待配置</string>
+    <string name="service_hint_connecting">正在连接</string>
+    <string name="service_hint_ready">节点在线</string>
+    <string name="service_hint_error">运行时异常</string>
+    <string name="menu_edit_bootstrap">编辑 Bootstrap</string>
+    <string name="menu_scan_bootstrap">扫码导入</string>
+    <string name="menu_request_screen_capture">授予录屏权限</string>
+    <string name="menu_reconnect_runtime">重新连接</string>
+    <string name="bootstrap_input_hint">输入 bootstrap 地址</string>
+    <string name="bootstrap_save_action">保存</string>
+    <string name="bootstrap_invalid_message">格式无效</string>
+    <string name="bootstrap_required_message">地址不能为空</string>
+    <string name="bootstrap_scan_invalid_message">无法识别二维码内容</string>
     <string name="surface_version_format">v%1$s</string>
     <string name="peer_suffix_placeholder">........</string>
     <string name="peer_suffix_unavailable">peer unavailable</string>
@@ -25,4 +42,6 @@
     <string name="screen_capture_notification_title">gomtm 正在共享设备画面</string>
     <string name="screen_capture_notification_text">保持前台服务以便浏览器连续查看 Android 画面。</string>
     <string name="screen_capture_permission_action">授予画面权限</string>
+    <item type="id" name="serviceToggleButton" />
+    <item type="id" name="screenCapturePermissionButton" />
 </resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_edit_bootstrap"
+        android:title="@string/menu_edit_bootstrap" />
+    <item
+        android:id="@+id/action_scan_bootstrap"
+        android:title="@string/menu_scan_bootstrap" />
+    <item
+        android:id="@+id/action_request_screen_capture"
+        android:title="@string/menu_request_screen_capture" />
+    <item
+        android:id="@+id/action_reconnect_runtime"
+        android:title="@string/menu_reconnect_runtime" />
+</menu>

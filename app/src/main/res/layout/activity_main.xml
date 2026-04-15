@@ -1,76 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/runtimeSurface"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:animateLayoutChanges="true"
     android:background="@color/gomtm_surface_dim"
-    android:foregroundGravity="center"
     android:padding="20dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/screenCapturePermissionButton"
-        style="@style/Widget.Material3.Button.OutlinedButton"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
+    <ImageButton
+        android:id="@+id/advancedMenuButton"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:layout_gravity="top|end"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:minHeight="0dp"
-        android:text=""
-        app:backgroundTint="@android:color/transparent"
-        app:cornerRadius="18dp"
-        app:icon="@drawable/ic_screen_share"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconSize="20dp"
-        app:iconTint="@color/gomtm_shell_button_dim_icon"
-        app:strokeColor="@color/gomtm_shell_button_dim_stroke"
-        app:strokeWidth="1dp" />
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/advanced_menu_action"
+        android:src="@android:drawable/ic_menu_more"
+        android:tint="@color/gomtm_version_dim" />
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:gravity="center"
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/peerSuffixValue"
+            android:id="@+id/serviceStateValue"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="@string/service_state_unconfigured"
+            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:textColor="@color/gomtm_version_dim" />
+
+        <TextView
+            android:id="@+id/peerSuffixValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:autoSizeMaxTextSize="88sp"
+            android:autoSizeMinTextSize="32sp"
+            android:autoSizeStepGranularity="2sp"
+            android:autoSizeTextType="uniform"
             android:fontFamily="monospace"
             android:gravity="center"
             android:includeFontPadding="false"
-            android:letterSpacing="0.14"
-            android:text="........"
+            android:letterSpacing="0.06"
+            android:maxLines="1"
+            android:text="@string/peer_suffix_placeholder"
             android:textAllCaps="true"
             android:textAppearance="@style/TextAppearance.Material3.DisplayLarge"
             android:textColor="@color/gomtm_peer_suffix_dim"
             android:textFontWeight="700" />
-    </LinearLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/serviceToggleButton"
-        style="@style/Widget.Material3.Button"
-        android:layout_width="76dp"
-        android:layout_height="76dp"
-        android:layout_gravity="bottom|center_horizontal"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:layout_marginBottom="8dp"
-        android:minHeight="0dp"
-        android:text=""
-        app:backgroundTint="@color/gomtm_shell_button_dim_bg"
-        app:cornerRadius="26dp"
-        app:icon="@drawable/ic_node_offline"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconSize="28dp"
-        app:iconTint="@color/gomtm_shell_button_dim_icon"
-        app:strokeColor="@color/gomtm_shell_button_dim_stroke"
-        app:strokeWidth="1dp" />
+        <TextView
+            android:id="@+id/serviceStatusHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/service_hint_unconfigured"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="@color/gomtm_version_dim" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/surfaceVersion"
