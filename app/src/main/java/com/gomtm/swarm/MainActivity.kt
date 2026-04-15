@@ -147,15 +147,6 @@ class MainActivity : AppCompatActivity() {
             latestBootstrapAddress = persisted.bootstrapAddress
         }
 
-        val internalBootstrap = intent?.getStringExtra(INTERNAL_BOOTSTRAP_EXTRA)?.trim().orEmpty()
-        if (internalBootstrap.isNotBlank()) {
-            val parsed = BootstrapInputParser.parse(internalBootstrap)
-            if (parsed.bootstrapAddress != null) {
-                latestBootstrapAddress = parsed.bootstrapAddress
-            }
-            return false
-        }
-
         if (intent?.action == Intent.ACTION_VIEW) {
             val deepLink = intent.dataString.orEmpty()
             if (deepLink.isNotBlank()) {
@@ -400,7 +391,6 @@ class MainActivity : AppCompatActivity() {
     private fun resolveColor(@ColorRes colorRes: Int): Int = ContextCompat.getColor(this, colorRes)
 
     companion object {
-        private const val INTERNAL_BOOTSTRAP_EXTRA = "bootstrap"
         private const val LOG_TAG = "GomtmMainActivity"
         private const val REFRESH_INTERVAL_MS = 750L
     }

@@ -40,7 +40,8 @@ class ForegroundRuntimeContractTest {
         )
 
         assertFalse(source.contains("BootstrapInputParser.parseIntent(intent)"))
-        assertTrue(source.contains("intent?.getStringExtra(INTERNAL_BOOTSTRAP_EXTRA)"))
+        assertFalse(source.contains("getStringExtra("))
+        assertFalse(source.contains("INTERNAL_BOOTSTRAP_EXTRA"))
         assertTrue(source.contains("intent?.action == Intent.ACTION_VIEW"))
         assertTrue(source.contains("showBootstrapDialog(parsed.bootstrapAddress)"))
     }
