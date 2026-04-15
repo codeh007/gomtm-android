@@ -30,8 +30,33 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("showAdvancedMenu"))
         assertTrue(source.contains("showBootstrapDialog"))
         assertTrue(source.contains("requestRuntimeRestart"))
-        assertTrue(source.contains("BootstrapInputParser.parseIntent"))
         assertTrue(source.contains("R.id.action_scan_bootstrap"))
+    }
+
+    @Test
+    fun mainActivityTreatsExternalDeepLinkAsConfirmationOnly() {
+        val source = String(
+            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
+        )
+
+        assertFalse(source.contains("BootstrapInputParser.parseIntent(intent)"))
+        assertTrue(source.contains("intent?.getStringExtra(INTERNAL_BOOTSTRAP_EXTRA)"))
+        assertTrue(source.contains("intent?.action == Intent.ACTION_VIEW"))
+        assertTrue(source.contains("showBootstrapDialog(parsed.bootstrapAddress)"))
+    }
+
+    @Test
+    fun mainActivityDoesNotRestartRuntimeWhileAlreadyStarting() {
+        val source = String(
+            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
+        )
+
+        assertTrue(source.contains("private fun isRuntimeStartingState(state: String): Boolean"))
+        assertTrue(
+            Regex(
+                """if \(isRuntimeStartingState\(snapshot\.state\)\) \{\s*refreshServiceState\(snapshot\)\s*return\s*}""",
+            ).containsMatchIn(source),
+        )
     }
 
     @Test

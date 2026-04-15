@@ -109,16 +109,20 @@ class MainActivity : AppCompatActivity() {
         versionValue.text = getString(R.string.surface_version_format, BuildConfig.VERSION_NAME)
         advancedMenuButton.setOnClickListener { showAdvancedMenu(it) }
 
-        applyIntentOverrides(intent)
+        val skipImmediateStart = applyIntentOverrides(intent)
         refreshServiceState()
-        requestRuntimeStartIfNeeded(forceRestart = false)
+        if (!skipImmediateStart) {
+            requestRuntimeStartIfNeeded(forceRestart = false)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        applyIntentOverrides(intent)
-        requestRuntimeStartIfNeeded(forceRestart = true)
+        val skipImmediateStart = applyIntentOverrides(intent)
+        if (!skipImmediateStart) {
+            requestRuntimeStartIfNeeded(forceRestart = true)
+        }
     }
 
     override fun onStart() {
@@ -137,16 +141,39 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun applyIntentOverrides(intent: Intent?) {
+    private fun applyIntentOverrides(intent: Intent?): Boolean {
         val persisted = runtimeStore.load()
         if (latestBootstrapAddress.isBlank() && persisted.bootstrapAddress.isNotBlank()) {
             latestBootstrapAddress = persisted.bootstrapAddress
         }
 
-        val parsed = BootstrapInputParser.parseIntent(intent)
-        if (parsed.bootstrapAddress != null) {
-            latestBootstrapAddress = parsed.bootstrapAddress
+        val internalBootstrap = intent?.getStringExtra(INTERNAL_BOOTSTRAP_EXTRA)?.trim().orEmpty()
+        if (internalBootstrap.isNotBlank()) {
+            val parsed = BootstrapInputParser.parse(internalBootstrap)
+            if (parsed.bootstrapAddress != null) {
+                latestBootstrapAddress = parsed.bootstrapAddress
+            }
+            return false
         }
+
+        if (intent?.action == Intent.ACTION_VIEW) {
+            val deepLink = intent.dataString.orEmpty()
+            if (deepLink.isNotBlank()) {
+                val parsed = BootstrapInputParser.parse(deepLink)
+                if (parsed.bootstrapAddress != null) {
+                    showBootstrapDialog(parsed.bootstrapAddress)
+                    return true
+                }
+
+                Toast.makeText(
+                    this,
+                    parsed.errorMessage ?: getString(R.string.bootstrap_invalid_message),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+
+        return false
     }
 
     private fun requestRuntimeStartIfNeeded(forceRestart: Boolean = false) {
@@ -158,6 +185,10 @@ class MainActivity : AppCompatActivity() {
 
         val snapshot = swarmRuntime.probe()
         val bootstrapChanged = latestBootstrapAddress != snapshot.bootstrapAddress
+        if (isRuntimeStartingState(snapshot.state)) {
+            refreshServiceState(snapshot)
+            return
+        }
         if (!forceRestart && isRuntimeActiveState(snapshot.state) && !bootstrapChanged) {
             refreshServiceState(snapshot)
             return
@@ -342,6 +373,11 @@ class MainActivity : AppCompatActivity() {
             state.equals("Registered", ignoreCase = true)
     }
 
+    private fun isRuntimeStartingState(state: String): Boolean {
+        return state.equals("Starting", ignoreCase = true) ||
+            state.equals("Connecting", ignoreCase = true)
+    }
+
     private fun animateSurfaceBackground(targetColor: Int) {
         val startColor = currentSurfaceColor ?: (runtimeSurface.background as? ColorDrawable)?.color ?: targetColor
         if (startColor == targetColor) {
@@ -364,6 +400,7 @@ class MainActivity : AppCompatActivity() {
     private fun resolveColor(@ColorRes colorRes: Int): Int = ContextCompat.getColor(this, colorRes)
 
     companion object {
+        private const val INTERNAL_BOOTSTRAP_EXTRA = "bootstrap"
         private const val LOG_TAG = "GomtmMainActivity"
         private const val REFRESH_INTERVAL_MS = 750L
     }
