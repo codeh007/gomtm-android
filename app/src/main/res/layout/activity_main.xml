@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/runtimeSurface"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -14,7 +15,7 @@
         android:background="@android:color/transparent"
         android:contentDescription="@string/advanced_menu_action"
         android:src="@android:drawable/ic_menu_more"
-        android:tint="@color/gomtm_version_dim" />
+        app:tint="@color/gomtm_version_dim" />
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -1,7 +1,7 @@
 package com.gomtm.swarm
 
-import android.app.Activity
 import android.animation.ValueAnimator
+import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.drawable.ColorDrawable
@@ -12,21 +12,26 @@ import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.ImageButton
+import android.widget.PopupMenu
 import android.widget.TextView
-import java.util.Locale
-import androidx.annotation.ColorRes
-import androidx.annotation.DrawableRes
-import androidx.appcompat.app.AppCompatActivity
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.ColorRes
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
 import com.gomtm.swarm.platform.lifecycle.GomtmForegroundService
 import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
 import com.gomtm.swarm.runtime.GomtmRuntimeFacade
-import com.gomtm.swarm.runtime.RuntimeLaunchConfig
 import com.gomtm.swarm.runtime.RuntimeSnapshot
+import com.gomtm.swarm.shell.BootstrapInputParser
 import com.gomtm.swarm.shell.NodeRuntimeConfig
 import com.gomtm.swarm.shell.NodeRuntimeStore
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = GomtmRuntimeFacade()
@@ -53,14 +58,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var runtimeSurface: View
     private lateinit var peerSuffixValue: TextView
-    private lateinit var serviceToggleButton: MaterialButton
-    private lateinit var screenCapturePermissionButton: MaterialButton
+    private lateinit var advancedMenuButton: ImageButton
+    private lateinit var serviceStateValue: TextView
+    private lateinit var serviceStatusHint: TextView
     private lateinit var versionValue: TextView
 
     private var currentSurfaceColor: Int? = null
-
     private var isAwaitingRuntimeStart = false
     private var latestBootstrapAddress = ""
+
     private val screenCapturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -71,6 +77,24 @@ class MainActivity : AppCompatActivity() {
         refreshServiceState()
     }
 
+    private val bootstrapScanLauncher = registerForActivityResult(ScanContract()) { result ->
+        val contents = result.contents.orEmpty()
+        if (contents.isBlank()) {
+            return@registerForActivityResult
+        }
+
+        val parsed = BootstrapInputParser.parse(contents)
+        if (parsed.bootstrapAddress != null) {
+            showBootstrapDialog(parsed.bootstrapAddress)
+        } else {
+            Toast.makeText(
+                this,
+                parsed.errorMessage ?: getString(R.string.bootstrap_scan_invalid_message),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -78,13 +102,12 @@ class MainActivity : AppCompatActivity() {
         runtimeSurface = findViewById(R.id.runtimeSurface)
         peerSuffixValue = findViewById(R.id.peerSuffixValue)
         versionValue = findViewById(R.id.surfaceVersion)
-        serviceToggleButton = findViewById(R.id.serviceToggleButton)
-        screenCapturePermissionButton = findViewById(R.id.screenCapturePermissionButton)
+        advancedMenuButton = findViewById(R.id.advancedMenuButton)
+        serviceStateValue = findViewById(R.id.serviceStateValue)
+        serviceStatusHint = findViewById(R.id.serviceStatusHint)
 
         versionValue.text = getString(R.string.surface_version_format, BuildConfig.VERSION_NAME)
-        serviceToggleButton.setOnClickListener { toggleService() }
-        screenCapturePermissionButton.setOnClickListener { requestScreenCapturePermission() }
-        screenCapturePermissionButton.contentDescription = getString(R.string.screen_capture_permission_action)
+        advancedMenuButton.setOnClickListener { showAdvancedMenu(it) }
 
         applyIntentOverrides(intent)
         refreshServiceState()
@@ -119,55 +142,100 @@ class MainActivity : AppCompatActivity() {
         if (latestBootstrapAddress.isBlank() && persisted.bootstrapAddress.isNotBlank()) {
             latestBootstrapAddress = persisted.bootstrapAddress
         }
-        val requestedBootstrap = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().orEmpty()
-        if (requestedBootstrap.isNotBlank()) {
-            latestBootstrapAddress = requestedBootstrap
+
+        val parsed = BootstrapInputParser.parseIntent(intent)
+        if (parsed.bootstrapAddress != null) {
+            latestBootstrapAddress = parsed.bootstrapAddress
         }
     }
 
     private fun requestRuntimeStartIfNeeded(forceRestart: Boolean = false) {
+        if (latestBootstrapAddress.isBlank()) {
+            isAwaitingRuntimeStart = false
+            refreshServiceState()
+            return
+        }
+
         val snapshot = swarmRuntime.probe()
-        val bootstrapChanged = latestBootstrapAddress.isNotBlank() && latestBootstrapAddress != snapshot.bootstrapAddress
+        val bootstrapChanged = latestBootstrapAddress != snapshot.bootstrapAddress
         if (!forceRestart && isRuntimeActiveState(snapshot.state) && !bootstrapChanged) {
             refreshServiceState(snapshot)
             return
         }
-        requestRuntimeStart()
+
+        requestRuntimeRestart()
     }
 
-    private fun toggleService() {
-        val snapshot = swarmRuntime.probe()
-        if (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state)) {
-            isAwaitingRuntimeStart = false
-            runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
-            GomtmForegroundService.stop(this)
-            refreshServiceState()
-            return
-        }
-        requestRuntimeStart()
+    private fun showAdvancedMenu(anchor: View) {
+        PopupMenu(this, anchor).apply {
+            menuInflater.inflate(R.menu.main_actions, menu)
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.action_edit_bootstrap -> {
+                        showBootstrapDialog(latestBootstrapAddress)
+                        true
+                    }
+
+                    R.id.action_scan_bootstrap -> {
+                        bootstrapScanLauncher.launch(
+                            ScanOptions().apply {
+                                setOrientationLocked(false)
+                            },
+                        )
+                        true
+                    }
+
+                    R.id.action_request_screen_capture -> {
+                        requestScreenCapturePermission()
+                        true
+                    }
+
+                    R.id.action_reconnect_runtime -> {
+                        requestRuntimeRestart()
+                        true
+                    }
+
+                    else -> false
+                }
+            }
+        }.show()
     }
 
-    private fun requestRuntimeStart() {
+    private fun showBootstrapDialog(initialValue: String) {
+        val contentView = layoutInflater.inflate(R.layout.dialog_bootstrap_input, null)
+        val input = contentView.findViewById<TextInputEditText>(R.id.bootstrapInputValue)
+        input.setText(initialValue)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_edit_bootstrap)
+            .setView(contentView)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.bootstrap_save_action) { _, _ ->
+                val parsed = BootstrapInputParser.parse(input.text?.toString().orEmpty())
+                if (parsed.bootstrapAddress != null) {
+                    latestBootstrapAddress = parsed.bootstrapAddress
+                    runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+                    requestRuntimeRestart()
+                } else {
+                    Toast.makeText(
+                        this,
+                        parsed.errorMessage ?: getString(R.string.bootstrap_invalid_message),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    private fun requestRuntimeRestart() {
         if (latestBootstrapAddress.isBlank()) {
             isAwaitingRuntimeStart = false
-            Log.w(LOG_TAG, "requestRuntimeStart skipped: bootstrap is blank")
-            refreshServiceState(RuntimeSnapshot.missing("bootstrap is required"))
+            refreshServiceState(RuntimeSnapshot.missing(getString(R.string.bootstrap_required_message)))
             return
         }
+
         isAwaitingRuntimeStart = true
         runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
-        Log.i(LOG_TAG, "requestRuntimeStart bootstrap=$latestBootstrapAddress")
-        renderServiceState(
-            RuntimeSnapshot(
-                bridgeClassName = "",
-                state = "Starting",
-                peerId = "",
-                bootstrapAddress = latestBootstrapAddress,
-                lastError = "",
-                discoveredPeers = emptyList(),
-                rawDiscoveredPeers = "",
-            ),
-        )
         GomtmForegroundService.start(
             context = this,
             bootstrapAddress = latestBootstrapAddress,
@@ -182,6 +250,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshServiceState(snapshot: RuntimeSnapshot = swarmRuntime.probe()) {
+        if (latestBootstrapAddress.isBlank() && snapshot.bootstrapAddress.isNotBlank()) {
+            latestBootstrapAddress = snapshot.bootstrapAddress
+        }
         if (isRuntimeActiveState(snapshot.state)) {
             isAwaitingRuntimeStart = false
         }
@@ -190,170 +261,71 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderServiceState(snapshot: RuntimeSnapshot) {
         when {
-            isRuntimeActiveState(snapshot.state) -> applyServiceState(
-                stateText = R.string.service_state_running,
-                detailText = detailForSnapshot(snapshot),
-                buttonContentDescription = R.string.service_action_stop,
-                buttonIcon = R.drawable.ic_node_online,
+            latestBootstrapAddress.isBlank() -> renderStatus(
+                stateLabel = getString(R.string.service_state_unconfigured),
+                hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_unconfigured) },
+                peerSuffix = getString(R.string.peer_suffix_placeholder),
+                surfaceBackgroundColor = R.color.gomtm_surface_dim,
+                peerTextColor = R.color.gomtm_peer_suffix_dim,
+                versionTextColor = R.color.gomtm_version_dim,
+            )
+
+            isRuntimeActiveState(snapshot.state) -> renderStatus(
+                stateLabel = getString(R.string.service_state_ready),
+                hint = getString(R.string.service_hint_ready),
+                peerSuffix = peerSuffixForSnapshot(snapshot),
                 surfaceBackgroundColor = R.color.gomtm_surface_live,
                 peerTextColor = R.color.gomtm_peer_suffix_live,
                 versionTextColor = R.color.gomtm_version_live,
-                buttonBackgroundColor = R.color.gomtm_shell_button_live_bg,
-                buttonIconTintColor = R.color.gomtm_shell_button_live_icon,
-                buttonStrokeColor = R.color.gomtm_shell_button_live_stroke,
-                permissionIconTintColor = R.color.gomtm_shell_button_live_icon,
-                permissionStrokeColor = R.color.gomtm_shell_button_live_stroke,
-                buttonEnabled = true,
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
-            snapshot.state.equals("Error", ignoreCase = true) -> applyServiceState(
-                stateText = R.string.service_state_error,
-                detailText = detailForSnapshot(snapshot),
-                buttonContentDescription = R.string.service_action_start,
-                buttonIcon = R.drawable.ic_node_offline,
+            snapshot.state.equals("Error", ignoreCase = true) -> renderStatus(
+                stateLabel = getString(R.string.service_state_error),
+                hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_error) },
+                peerSuffix = peerSuffixForSnapshot(snapshot),
                 surfaceBackgroundColor = R.color.gomtm_surface_error,
                 peerTextColor = R.color.gomtm_peer_suffix_error,
                 versionTextColor = R.color.gomtm_version_error,
-                buttonBackgroundColor = R.color.gomtm_shell_button_error_bg,
-                buttonIconTintColor = R.color.gomtm_shell_button_error_icon,
-                buttonStrokeColor = R.color.gomtm_shell_button_error_stroke,
-                permissionIconTintColor = R.color.gomtm_shell_button_error_icon,
-                permissionStrokeColor = R.color.gomtm_shell_button_error_stroke,
-                buttonEnabled = true,
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
-            isRuntimeStartingState(snapshot.state) -> applyServiceState(
-                stateText = R.string.service_state_starting,
-                detailText = detailForSnapshot(snapshot),
-                buttonContentDescription = R.string.service_action_stop,
-                buttonIcon = R.drawable.ic_node_starting,
+            isAwaitingRuntimeStart || snapshot.state.isNotBlank() -> renderStatus(
+                stateLabel = getString(R.string.service_state_connecting),
+                hint = getString(R.string.service_hint_connecting),
+                peerSuffix = peerSuffixForSnapshot(snapshot),
                 surfaceBackgroundColor = R.color.gomtm_surface_dim,
                 peerTextColor = R.color.gomtm_peer_suffix_dim,
                 versionTextColor = R.color.gomtm_version_dim,
-                buttonBackgroundColor = R.color.gomtm_shell_button_dim_bg,
-                buttonIconTintColor = R.color.gomtm_shell_button_dim_icon,
-                buttonStrokeColor = R.color.gomtm_shell_button_dim_stroke,
-                permissionIconTintColor = R.color.gomtm_shell_button_dim_icon,
-                permissionStrokeColor = R.color.gomtm_shell_button_dim_stroke,
-                buttonEnabled = true,
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
 
-            isAwaitingRuntimeStart -> applyServiceState(
-                stateText = R.string.service_state_starting,
-                detailText = getString(R.string.service_state_starting_detail),
-                buttonContentDescription = R.string.service_action_starting,
-                buttonIcon = R.drawable.ic_node_starting,
+            else -> renderStatus(
+                stateLabel = getString(R.string.service_state_connecting),
+                hint = getString(R.string.service_hint_connecting),
+                peerSuffix = peerSuffixForSnapshot(snapshot),
                 surfaceBackgroundColor = R.color.gomtm_surface_dim,
                 peerTextColor = R.color.gomtm_peer_suffix_dim,
                 versionTextColor = R.color.gomtm_version_dim,
-                buttonBackgroundColor = R.color.gomtm_shell_button_dim_bg,
-                buttonIconTintColor = R.color.gomtm_shell_button_dim_icon,
-                buttonStrokeColor = R.color.gomtm_shell_button_dim_stroke,
-                permissionIconTintColor = R.color.gomtm_shell_button_dim_icon,
-                permissionStrokeColor = R.color.gomtm_shell_button_dim_stroke,
-                buttonEnabled = false,
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
-            )
-
-            else -> applyServiceState(
-                stateText = R.string.service_state_stopped,
-                detailText = getString(R.string.service_state_stopped_detail),
-                buttonContentDescription = R.string.service_action_start,
-                buttonIcon = R.drawable.ic_node_offline,
-                surfaceBackgroundColor = R.color.gomtm_surface_dim,
-                peerTextColor = R.color.gomtm_peer_suffix_dim,
-                versionTextColor = R.color.gomtm_version_dim,
-                buttonBackgroundColor = R.color.gomtm_shell_button_dim_bg,
-                buttonIconTintColor = R.color.gomtm_shell_button_dim_icon,
-                buttonStrokeColor = R.color.gomtm_shell_button_dim_stroke,
-                permissionIconTintColor = R.color.gomtm_shell_button_dim_icon,
-                permissionStrokeColor = R.color.gomtm_shell_button_dim_stroke,
-                buttonEnabled = true,
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                semanticPeerSuffix = semanticPeerSuffixForSnapshot(snapshot),
             )
         }
     }
 
-    private fun detailForSnapshot(snapshot: RuntimeSnapshot): String {
-        return when {
-            isRuntimeActiveState(snapshot.state) && snapshot.peerId.isNotBlank() -> getString(
-                R.string.service_state_running_detail_peer,
-                snapshot.peerId,
-            )
-
-            isRuntimeActiveState(snapshot.state) -> getString(R.string.service_state_running_detail)
-
-            snapshot.state.equals("Error", ignoreCase = true) -> getString(
-                R.string.service_state_error_detail,
-                snapshot.lastError.ifBlank { getString(R.string.service_state_error_unknown) },
-            )
-
-            snapshot.bootstrapAddress.isNotBlank() -> getString(
-                R.string.service_state_starting_detail_runtime,
-                snapshot.state.ifBlank { getString(R.string.service_state_starting) },
-                snapshot.bootstrapAddress,
-            )
-
-            else -> getString(R.string.service_state_starting_detail)
-        }
-    }
-
-    private fun isRuntimeActiveState(state: String): Boolean {
-        return state.equals("Ready", ignoreCase = true) ||
-            state.equals("Connected", ignoreCase = true) ||
-            state.equals("Registered", ignoreCase = true)
-    }
-
-    private fun isRuntimeStartingState(state: String): Boolean {
-        return state.equals("Starting", ignoreCase = true) ||
-            state.equals("Connecting", ignoreCase = true)
-    }
-
-    private fun applyServiceState(
-        stateText: Int,
-        detailText: String,
-        buttonContentDescription: Int,
+    private fun renderStatus(
+        stateLabel: String,
+        hint: String,
+        peerSuffix: String,
         @ColorRes surfaceBackgroundColor: Int,
         @ColorRes peerTextColor: Int,
         @ColorRes versionTextColor: Int,
-        @DrawableRes buttonIcon: Int,
-        @ColorRes buttonBackgroundColor: Int,
-        @ColorRes buttonIconTintColor: Int,
-        @ColorRes buttonStrokeColor: Int,
-        @ColorRes permissionIconTintColor: Int,
-        @ColorRes permissionStrokeColor: Int,
-        buttonEnabled: Boolean,
-        peerSuffix: String,
-        semanticPeerSuffix: String?,
     ) {
-        val buttonHint = getString(buttonContentDescription)
-        val stateLabel = getString(stateText)
+        val versionColor = resolveColor(versionTextColor)
         peerSuffixValue.text = peerSuffix
         peerSuffixValue.setTextColor(resolveColor(peerTextColor))
-        versionValue.setTextColor(resolveColor(versionTextColor))
+        serviceStateValue.text = stateLabel
+        serviceStateValue.setTextColor(versionColor)
+        serviceStatusHint.text = hint
+        serviceStatusHint.setTextColor(versionColor)
+        versionValue.setTextColor(versionColor)
+        advancedMenuButton.imageTintList = ColorStateList.valueOf(versionColor)
         animateSurfaceBackground(resolveColor(surfaceBackgroundColor))
-        serviceToggleButton.text = ""
-        serviceToggleButton.contentDescription = listOfNotNull(
-            stateLabel,
-            semanticPeerSuffix,
-            detailText,
-            buttonHint,
-        ).joinToString(separator = ". ")
-        serviceToggleButton.setIconResource(buttonIcon)
-        serviceToggleButton.iconTint = ColorStateList.valueOf(resolveColor(buttonIconTintColor))
-        serviceToggleButton.backgroundTintList = ColorStateList.valueOf(resolveColor(buttonBackgroundColor))
-        serviceToggleButton.strokeColor = ColorStateList.valueOf(resolveColor(buttonStrokeColor))
-        serviceToggleButton.isEnabled = buttonEnabled
-        screenCapturePermissionButton.iconTint = ColorStateList.valueOf(resolveColor(permissionIconTintColor))
-        screenCapturePermissionButton.strokeColor = ColorStateList.valueOf(resolveColor(permissionStrokeColor))
     }
 
     private fun peerSuffixForSnapshot(snapshot: RuntimeSnapshot): String {
@@ -364,12 +336,10 @@ class MainActivity : AppCompatActivity() {
         return peerId.takeLast(8).uppercase(Locale.ROOT)
     }
 
-    private fun semanticPeerSuffixForSnapshot(snapshot: RuntimeSnapshot): String? {
-        val peerId = snapshot.peerId.trim()
-        if (peerId.isEmpty()) {
-            return null
-        }
-        return peerId.takeLast(8).uppercase(Locale.ROOT)
+    private fun isRuntimeActiveState(state: String): Boolean {
+        return state.equals("Ready", ignoreCase = true) ||
+            state.equals("Connected", ignoreCase = true) ||
+            state.equals("Registered", ignoreCase = true)
     }
 
     private fun animateSurfaceBackground(targetColor: Int) {
@@ -395,7 +365,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val LOG_TAG = "GomtmMainActivity"
-        private const val EXTRA_BOOTSTRAP = "bootstrap"
         private const val REFRESH_INTERVAL_MS = 750L
     }
 }

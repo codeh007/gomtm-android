@@ -9,6 +9,32 @@ import org.junit.Test
 
 class ForegroundRuntimeContractTest {
     @Test
+    fun manifestDeclaresDeepLinkAndCameraPermissionForBootstrapImport() {
+        val manifest = String(Files.readAllBytes(resolveProjectPath("app/src/main/AndroidManifest.xml")))
+
+        assertTrue(manifest.contains("android.permission.CAMERA"))
+        assertTrue(manifest.contains("android.intent.action.VIEW"))
+        assertTrue(manifest.contains("android.intent.category.BROWSABLE"))
+        assertTrue(manifest.contains("android:scheme=\"gomtm\""))
+        assertTrue(manifest.contains("android:host=\"bootstrap\""))
+    }
+
+    @Test
+    fun mainActivityRoutesAdvancedMenuToBootstrapDialogAndScanner() {
+        val source = String(
+            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
+        )
+
+        assertTrue(source.contains("ScanContract"))
+        assertTrue(source.contains("ScanOptions"))
+        assertTrue(source.contains("showAdvancedMenu"))
+        assertTrue(source.contains("showBootstrapDialog"))
+        assertTrue(source.contains("requestRuntimeRestart"))
+        assertTrue(source.contains("BootstrapInputParser.parseIntent"))
+        assertTrue(source.contains("R.id.action_scan_bootstrap"))
+    }
+
+    @Test
     fun manifestDeclaresForegroundRuntimeAndBootRestoreComponents() {
         val manifest = String(Files.readAllBytes(resolveProjectPath("app/src/main/AndroidManifest.xml")))
 

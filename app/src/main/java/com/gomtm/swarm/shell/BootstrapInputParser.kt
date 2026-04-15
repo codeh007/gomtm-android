@@ -75,7 +75,7 @@ object BootstrapInputParser {
 
     private fun decodeQueryComponent(value: String): String? {
         return runCatching {
-            URLDecoder.decode(value, StandardCharsets.UTF_8)
+            URLDecoder.decode(value, StandardCharsets.UTF_8.name())
         }.getOrNull()
     }
 }
