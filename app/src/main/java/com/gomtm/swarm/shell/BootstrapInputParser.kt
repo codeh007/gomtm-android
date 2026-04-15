@@ -1,6 +1,7 @@
 package com.gomtm.swarm.shell
 
 import android.content.Intent
+import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -18,19 +19,14 @@ object BootstrapInputParser {
         if (trimmed.startsWith("/")) {
             return BootstrapParseResult(bootstrapAddress = trimmed)
         }
-        if (!trimmed.startsWith(DEEP_LINK_PREFIX)) {
+
+        val uri = runCatching { URI(trimmed) }.getOrNull()
+        if (uri?.scheme != DEEP_LINK_SCHEME || uri.host != DEEP_LINK_HOST) {
             return BootstrapParseResult(errorMessage = "格式无效")
         }
 
-        val encodedBootstrap = trimmed.substringAfter("bootstrap=", missingDelimiterValue = "").trim()
-        if (encodedBootstrap.isEmpty()) {
-            return BootstrapParseResult(errorMessage = "地址不能为空")
-        }
-
-        val bootstrap = runCatching {
-            URLDecoder.decode(encodedBootstrap, StandardCharsets.UTF_8)
-        }.getOrNull()?.trim().orEmpty()
-
+        val bootstrap = extractBootstrapFromQuery(uri.rawQuery)
+            ?: return BootstrapParseResult(errorMessage = "格式无效")
         if (bootstrap.isEmpty()) {
             return BootstrapParseResult(errorMessage = "地址不能为空")
         }
@@ -56,5 +52,30 @@ object BootstrapInputParser {
     }
 
     private const val EXTRA_BOOTSTRAP = "bootstrap"
-    private const val DEEP_LINK_PREFIX = "gomtm://bootstrap?"
+    private const val DEEP_LINK_SCHEME = "gomtm"
+    private const val DEEP_LINK_HOST = "bootstrap"
+
+    private fun extractBootstrapFromQuery(rawQuery: String?): String? {
+        if (rawQuery == null) {
+            return ""
+        }
+
+        for (segment in rawQuery.split('&')) {
+            val rawKey = segment.substringBefore('=', missingDelimiterValue = segment)
+            val rawValue = segment.substringAfter('=', missingDelimiterValue = "")
+            val key = decodeQueryComponent(rawKey) ?: return null
+            if (key != EXTRA_BOOTSTRAP) {
+                continue
+            }
+            return decodeQueryComponent(rawValue)?.trim()
+        }
+
+        return ""
+    }
+
+    private fun decodeQueryComponent(value: String): String? {
+        return runCatching {
+            URLDecoder.decode(value, StandardCharsets.UTF_8)
+        }.getOrNull()
+    }
 }
