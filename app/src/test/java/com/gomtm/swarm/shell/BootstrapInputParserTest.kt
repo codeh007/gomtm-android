@@ -1,6 +1,5 @@
 package com.gomtm.swarm.shell
 
-import android.content.Intent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -35,31 +34,6 @@ class BootstrapInputParserTest {
     }
 
     @Test
-    fun parseIntentPrefersExplicitExtra() {
-        val intent = FakeIntent(
-            bootstrapExtra = "/ip4/1.1.1.1/tcp/4101/p2p/extra",
-            deepLink = "gomtm://bootstrap?bootstrap=%2Fip4%2F2.2.2.2%2Ftcp%2F4101%2Fp2p%2Fdeep",
-        )
-
-        val result = BootstrapInputParser.parseIntent(intent)
-
-        assertEquals("/ip4/1.1.1.1/tcp/4101/p2p/extra", result.bootstrapAddress)
-    }
-
-    @Test
-    fun parseIntentFallsBackToDeepLinkWhenExtraIsBlank() {
-        val intent = FakeIntent(
-            bootstrapExtra = "   ",
-            deepLink = "gomtm://bootstrap?bootstrap=%2Fip4%2F2.2.2.2%2Ftcp%2F4101%2Fp2p%2Fdeep",
-        )
-
-        val result = BootstrapInputParser.parseIntent(intent)
-
-        assertEquals("/ip4/2.2.2.2/tcp/4101/p2p/deep", result.bootstrapAddress)
-        assertNull(result.errorMessage)
-    }
-
-    @Test
     fun rejectsBlankInput() {
         val result = BootstrapInputParser.parse("   ")
 
@@ -89,19 +63,5 @@ class BootstrapInputParserTest {
 
         assertEquals("格式无效", result.errorMessage)
         assertNull(result.bootstrapAddress)
-    }
-
-    private class FakeIntent(
-        private val bootstrapExtra: String? = null,
-        private val deepLink: String? = null,
-    ) : Intent() {
-        override fun getStringExtra(name: String): String? {
-            if (name == "bootstrap") {
-                return bootstrapExtra
-            }
-            return null
-        }
-
-        override fun getDataString(): String? = deepLink
     }
 }

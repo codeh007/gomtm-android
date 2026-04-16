@@ -50,6 +50,14 @@ class MainActivityContractTest {
     }
 
     @Test
+    fun bootstrapParserDoesNotKeepIntentCompatibilityEntry() {
+        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/shell/BootstrapInputParser.kt")
+
+        assertFalse("bootstrap parser should not keep parseIntent compat entry", source.contains("fun parseIntent("))
+        assertFalse("bootstrap parser should not read bootstrap intent extras", source.contains("getStringExtra("))
+    }
+
+    @Test
     fun stringsExposeStatusFirstShellCopy() {
         val strings = readProjectFile("app/src/main/res/values/strings.xml")
         val expectedNames = listOf(

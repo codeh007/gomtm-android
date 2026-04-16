@@ -1,6 +1,4 @@
 package com.gomtm.swarm.shell
-
-import android.content.Intent
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -35,20 +33,6 @@ object BootstrapInputParser {
         }
 
         return BootstrapParseResult(bootstrapAddress = bootstrap)
-    }
-
-    fun parseIntent(intent: Intent?): BootstrapParseResult {
-        val extra = intent?.getStringExtra(EXTRA_BOOTSTRAP).orEmpty()
-        if (extra.isNotBlank()) {
-            return parse(extra)
-        }
-
-        val deepLink = intent?.dataString.orEmpty()
-        if (deepLink.isNotBlank()) {
-            return parse(deepLink)
-        }
-
-        return BootstrapParseResult()
     }
 
     private const val EXTRA_BOOTSTRAP = "bootstrap"
