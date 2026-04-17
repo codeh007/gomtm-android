@@ -292,6 +292,15 @@ class MainActivity : AppCompatActivity() {
                 versionTextColor = R.color.gomtm_version_dim,
             )
 
+            snapshot.state.equals("Degraded", ignoreCase = true) -> renderStatus(
+                stateLabel = getString(R.string.service_state_connecting),
+                hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_connecting) },
+                peerSuffix = peerSuffixForSnapshot(snapshot),
+                surfaceBackgroundColor = R.color.gomtm_surface_dim,
+                peerTextColor = R.color.gomtm_peer_suffix_dim,
+                versionTextColor = R.color.gomtm_version_dim,
+            )
+
             isRuntimeActiveState(snapshot.state) -> renderStatus(
                 stateLabel = getString(R.string.service_state_ready),
                 hint = getString(R.string.service_hint_ready),

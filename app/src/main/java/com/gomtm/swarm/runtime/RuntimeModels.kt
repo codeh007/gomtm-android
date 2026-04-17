@@ -53,6 +53,8 @@ data class RuntimeSnapshot(
     val peerId: String,
     val bootstrapAddress: String,
     val lastError: String,
+    val lastAutoRestartAtMs: Long = 0L,
+    val lastAutoRestartReason: String = "",
     val discoveredPeers: List<DiscoveredPeer>,
     val rawDiscoveredPeers: String,
 ) {
@@ -63,6 +65,8 @@ data class RuntimeSnapshot(
             peerId = "",
             bootstrapAddress = "",
             lastError = message,
+            lastAutoRestartAtMs = 0L,
+            lastAutoRestartReason = "",
             discoveredPeers = emptyList(),
             rawDiscoveredPeers = "",
         )

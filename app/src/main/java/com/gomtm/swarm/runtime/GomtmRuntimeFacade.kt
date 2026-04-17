@@ -241,13 +241,47 @@ class GomtmRuntimeFacade(
         }
 
         val rawDiscoveredPeers = invokeStringByNames(bridge, "GetDiscoveredPeers", "getDiscoveredPeers")
+        val discoveredPeers = DiscoveredPeer.parseSnapshot(rawDiscoveredPeers)
+        val state = invokeStringByNames(bridge, "GetState", "getState").ifBlank { "Unknown" }
+        val peerId = invokeStringByNames(bridge, "GetPeerID", "GetPeerId", "getPeerID", "getPeerId")
+        val bootstrapAddress = invokeStringByNames(bridge, "GetBootstrapAddr", "GetBootstrapAddress", "getBootstrapAddr", "getBootstrapAddress")
+        val lastError = invokeStringByNames(bridge, "GetLastError", "getLastError")
+        val normalizedState = if (
+            state.equals("Ready", ignoreCase = true) ||
+            state.equals("Connected", ignoreCase = true) ||
+            state.equals("Registered", ignoreCase = true)
+        ) {
+            val bootstrapPeerId = bootstrapAddress.substringAfterLast("/p2p/", "").trim()
+            val bootstrapPeerMissing = bootstrapPeerId.isNotEmpty() && discoveredPeers.none { it.isBootstrap && it.peerId == bootstrapPeerId }
+            if (bootstrapPeerMissing) "Degraded" else state
+        } else {
+            state
+        }
+        val normalizedLastError = if (normalizedState.equals("Degraded", ignoreCase = true) && lastError.isBlank()) {
+            "bootstrap session observation missing"
+        } else {
+            lastError
+        }
+        val autoRestartBridge = runCatching { Class.forName("com.gomtm.swarm.platform.lifecycle.GomtmForegroundService", true, classLoader) }.getOrNull()
+        val lastAutoRestartAtMs = autoRestartBridge?.let { bridgeClass ->
+            runCatching {
+                (bridgeClass.getMethod("getLastDegradedRestartAtMs").invoke(null) as? Number)?.toLong() ?: 0L
+            }.getOrDefault(0L)
+        } ?: 0L
+        val lastAutoRestartReason = autoRestartBridge?.let { bridgeClass ->
+            runCatching {
+                bridgeClass.getMethod("getLastDegradedRestartReason").invoke(null) as? String ?: ""
+            }.getOrDefault("")
+        } ?: ""
         return RuntimeSnapshot(
             bridgeClassName = bridge.name,
-            state = invokeStringByNames(bridge, "GetState", "getState").ifBlank { "Unknown" },
-            peerId = invokeStringByNames(bridge, "GetPeerID", "GetPeerId", "getPeerID", "getPeerId"),
-            bootstrapAddress = invokeStringByNames(bridge, "GetBootstrapAddr", "GetBootstrapAddress", "getBootstrapAddr", "getBootstrapAddress"),
-            lastError = invokeStringByNames(bridge, "GetLastError", "getLastError"),
-            discoveredPeers = DiscoveredPeer.parseSnapshot(rawDiscoveredPeers),
+            state = normalizedState,
+            peerId = peerId,
+            bootstrapAddress = bootstrapAddress,
+            lastError = normalizedLastError,
+            lastAutoRestartAtMs = lastAutoRestartAtMs,
+            lastAutoRestartReason = lastAutoRestartReason,
+            discoveredPeers = discoveredPeers,
             rawDiscoveredPeers = rawDiscoveredPeers,
         )
     }

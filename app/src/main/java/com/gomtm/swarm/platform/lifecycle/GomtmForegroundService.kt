@@ -30,6 +30,8 @@ class GomtmForegroundService : Service() {
     private val backgroundWorker = Executors.newSingleThreadExecutor()
     private val tickRunning = AtomicBoolean(false)
     private var latestBootstrapAddress = ""
+    private var lastDegradedRestartAtMs = 0L
+    private var lastDegradedRestartReason = ""
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -40,6 +42,14 @@ class GomtmForegroundService : Service() {
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .forEach { Log.i(LOG_TAG, "runtime_log: $it") }
+            }
+            if (shouldRestartDegradedRuntime(snapshot)) {
+                Log.w(LOG_TAG, "runtime degraded; restarting foreground runtime bootstrap=$latestBootstrapAddress")
+                lastDegradedRestartAtMs = System.currentTimeMillis()
+                lastDegradedRestartReason = snapshot.lastError
+                lastKnownDegradedRestartAtMs = lastDegradedRestartAtMs
+                lastKnownDegradedRestartReason = lastDegradedRestartReason
+                startRuntime(forceRestart = true)
             }
             if (isRuntimeActiveState(snapshot.state) && tickRunning.compareAndSet(false, true)) {
                 backgroundWorker.execute {
@@ -126,6 +136,20 @@ class GomtmForegroundService : Service() {
         mainHandler.post(tickRunnable)
     }
 
+    private fun shouldRestartDegradedRuntime(snapshot: com.gomtm.swarm.runtime.RuntimeSnapshot): Boolean {
+        if (!snapshot.state.equals("Degraded", ignoreCase = true)) {
+            return false
+        }
+        if (!snapshot.lastError.contains("bootstrap session observation missing", ignoreCase = true)) {
+            return false
+        }
+        if (latestBootstrapAddress.isBlank()) {
+            return false
+        }
+        val now = System.currentTimeMillis()
+        return now - lastDegradedRestartAtMs >= DEGRADED_RESTART_COOLDOWN_MS
+    }
+
     private fun buildNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra(EXTRA_BOOTSTRAP, latestBootstrapAddress)
@@ -162,7 +186,8 @@ class GomtmForegroundService : Service() {
     private fun isRuntimeActiveState(state: String): Boolean {
         return state.equals("Ready", ignoreCase = true) ||
             state.equals("Connected", ignoreCase = true) ||
-            state.equals("Registered", ignoreCase = true)
+            state.equals("Registered", ignoreCase = true) ||
+            state.equals("Degraded", ignoreCase = true)
     }
 
     private fun isRuntimeStartingState(state: String): Boolean {
@@ -179,7 +204,20 @@ class GomtmForegroundService : Service() {
         private const val NOTIFICATION_CHANNEL_ID = "gomtm_runtime"
         private const val NOTIFICATION_ID = 41001
         private const val TICK_INTERVAL_MS = 750L
+        private const val DEGRADED_RESTART_COOLDOWN_MS = 15_000L
         private const val LOG_TAG = "GomtmForegroundSvc"
+
+        @JvmStatic
+        fun getLastDegradedRestartAtMs(): Long = lastKnownDegradedRestartAtMs
+
+        @JvmStatic
+        fun getLastDegradedRestartReason(): String = lastKnownDegradedRestartReason
+
+        @Volatile
+        private var lastKnownDegradedRestartAtMs: Long = 0L
+
+        @Volatile
+        private var lastKnownDegradedRestartReason: String = ""
 
         fun start(
             context: Context,

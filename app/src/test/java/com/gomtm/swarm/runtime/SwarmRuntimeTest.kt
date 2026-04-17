@@ -39,14 +39,60 @@ class SwarmRuntimeTest {
             configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
+        FakeNodeBridge.discoveredPeersJson =
+            """
+            {"schema_version":"v1","generated_at":"2026-03-27T10:00:00Z","peers":[{"peer_id":"test","name":"bootstrap","state":"registered","discovered_in_current_session":true,"is_bootstrap":true,"last_seen_at":"2026-03-27T10:00:00Z"},{"peer_id":"peer-b","name":"android-b","state":"registered","discovered_in_current_session":true,"is_bootstrap":false,"last_seen_at":"2026-03-27T10:00:00Z"}]}
+            """.trimIndent()
 
         val status = runtime.probe()
 
         assertEquals("Registered", status.state)
         assertEquals("peer-123", status.peerId)
         assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", status.bootstrapAddress)
-        assertEquals(1, status.discoveredPeers.size)
-        assertEquals("peer-b", status.discoveredPeers.single().peerId)
+        assertEquals(2, status.discoveredPeers.size)
+        assertEquals("peer-b", status.discoveredPeers.last().peerId)
+    }
+
+    @Test
+    fun degradesRuntimeSnapshotWhenBootstrapPeerDisappears() {
+        val runtime = GomtmRuntimeFacade(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+        FakeNodeBridge.discoveredPeersJson =
+            """
+            {"schema_version":"v1","generated_at":"2026-03-27T10:00:00Z","peers":[{"peer_id":"peer-b","name":"android-b","state":"registered","discovered_in_current_session":true,"is_bootstrap":false,"last_seen_at":"2026-03-27T10:00:00Z"}]}
+            """.trimIndent()
+
+        val status = runtime.probe()
+
+        assertEquals("Degraded", status.state)
+        assertEquals("bootstrap session observation missing", status.lastError)
+    }
+
+    @Test
+    fun exposesLastAutoRestartObservationFromForegroundService() {
+        val runtime = GomtmRuntimeFacade(
+            bridgeClassName = FakeNodeBridge::class.java.name,
+            configClassName = FakeConfig::class.java.name,
+            classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
+        )
+        com.gomtm.swarm.platform.lifecycle.GomtmForegroundService.getLastDegradedRestartReason()
+        val bridgeClass = com.gomtm.swarm.platform.lifecycle.GomtmForegroundService::class.java
+        bridgeClass.getDeclaredField("lastKnownDegradedRestartAtMs").apply {
+            isAccessible = true
+            setLong(null, 123456789L)
+        }
+        bridgeClass.getDeclaredField("lastKnownDegradedRestartReason").apply {
+            isAccessible = true
+            set(null, "bootstrap session observation missing")
+        }
+
+        val status = runtime.probe()
+
+        assertEquals(123456789L, status.lastAutoRestartAtMs)
+        assertEquals("bootstrap session observation missing", status.lastAutoRestartReason)
     }
 
     @Test
@@ -350,7 +396,10 @@ class SwarmRuntimeTest {
             fun getLastError(): String = ""
 
             @JvmStatic
-            fun getDiscoveredPeers(): String =
+            fun getDiscoveredPeers(): String = discoveredPeersJson
+
+            @JvmField
+            var discoveredPeersJson: String =
                 """
                 {"schema_version":"v1","generated_at":"2026-03-27T10:00:00Z","peers":[{"peer_id":"peer-b","name":"android-b","state":"registered","discovered_in_current_session":true,"is_bootstrap":false,"last_seen_at":"2026-03-27T10:00:00Z"}]}
                 """.trimIndent()

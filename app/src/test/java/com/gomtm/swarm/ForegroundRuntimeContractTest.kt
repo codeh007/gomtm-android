@@ -61,6 +61,16 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
+    fun mainActivityTreatsDegradedAsRecoveringNotReady() {
+        val source = String(
+            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
+        )
+
+        assertTrue(source.contains("snapshot.state.equals(\"Degraded\", ignoreCase = true) -> renderStatus("))
+        assertTrue(source.contains("snapshot.lastError.ifBlank { getString(R.string.service_hint_connecting) }"))
+    }
+
+    @Test
     fun manifestDeclaresForegroundRuntimeAndBootRestoreComponents() {
         val manifest = String(Files.readAllBytes(resolveProjectPath("app/src/main/AndroidManifest.xml")))
 
@@ -99,6 +109,13 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("processRemoteControlTick"))
         assertTrue(source.contains("bootstrap"))
         assertTrue(source.contains("bootstrap is blank"))
+        assertTrue(source.contains("state.equals(\"Degraded\", ignoreCase = true)"))
+        assertTrue(source.contains("DEGRADED_RESTART_COOLDOWN_MS"))
+        assertTrue(source.contains("lastDegradedRestartAtMs"))
+        assertTrue(source.contains("lastDegradedRestartReason"))
+        assertTrue(source.contains("getLastDegradedRestartAtMs"))
+        assertTrue(source.contains("getLastDegradedRestartReason"))
+        assertTrue(source.contains("snapshot.lastError.contains(\"bootstrap session observation missing\", ignoreCase = true)"))
         assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 
