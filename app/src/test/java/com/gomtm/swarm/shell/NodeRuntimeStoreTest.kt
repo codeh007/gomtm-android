@@ -27,6 +27,16 @@ class NodeRuntimeStoreTest {
         assertEquals("", restored.connectionAddress)
     }
 
+    @Test
+    fun ignoresLegacyBootstrapPreference() {
+        val preferences = InMemorySharedPreferences()
+        preferences.edit().putString("bootstrap", "/ip4/127.0.0.1/tcp/4101/p2p/legacy").apply()
+
+        val restored = NodeRuntimeStore(preferences).load()
+
+        assertEquals("", restored.connectionAddress)
+    }
+
     private class InMemorySharedPreferences : SharedPreferences {
         private val values = linkedMapOf<String, Any?>()
 
