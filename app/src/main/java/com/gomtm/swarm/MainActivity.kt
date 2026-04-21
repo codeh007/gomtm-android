@@ -26,7 +26,7 @@ import com.gomtm.swarm.platform.lifecycle.GomtmForegroundService
 import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
 import com.gomtm.swarm.runtime.GomtmRuntimeFacade
 import com.gomtm.swarm.runtime.RuntimeSnapshot
-import com.gomtm.swarm.shell.BootstrapInputParser
+import com.gomtm.swarm.shell.ConnectionInputParser
 import com.gomtm.swarm.shell.NodeRuntimeConfig
 import com.gomtm.swarm.shell.NodeRuntimeStore
 import com.journeyapps.barcodescanner.ScanContract
@@ -49,7 +49,7 @@ class MainActivity : AppCompatActivity() {
             }
             Log.i(
                 LOG_TAG,
-                "probe state=${snapshot.state} peerId=${snapshot.peerId} bootstrap=${snapshot.bootstrapAddress} lastError=${snapshot.lastError}",
+                "probe state=${snapshot.state} peerId=${snapshot.peerId} connection=${snapshot.connectionAddress} lastError=${snapshot.lastError}",
             )
             refreshServiceState(snapshot)
             refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
 
     private var currentSurfaceColor: Int? = null
     private var isAwaitingRuntimeStart = false
-    private var latestBootstrapAddress = ""
+    private var latestConnectionAddress = ""
 
     private val screenCapturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -77,19 +77,19 @@ class MainActivity : AppCompatActivity() {
         refreshServiceState()
     }
 
-    private val bootstrapScanLauncher = registerForActivityResult(ScanContract()) { result ->
+    private val connectionScanLauncher = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents.orEmpty()
         if (contents.isBlank()) {
             return@registerForActivityResult
         }
 
-        val parsed = BootstrapInputParser.parse(contents)
-        if (parsed.bootstrapAddress != null) {
-            showBootstrapDialog(parsed.bootstrapAddress)
+        val parsed = ConnectionInputParser.parse(contents)
+        if (parsed.connectionAddress != null) {
+            showConnectionDialog(parsed.connectionAddress)
         } else {
             Toast.makeText(
                 this,
-                parsed.errorMessage ?: getString(R.string.bootstrap_scan_invalid_message),
+                parsed.errorMessage ?: getString(R.string.connection_scan_invalid_message),
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -143,22 +143,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyIntentOverrides(intent: Intent?): Boolean {
         val persisted = runtimeStore.load()
-        if (latestBootstrapAddress.isBlank() && persisted.bootstrapAddress.isNotBlank()) {
-            latestBootstrapAddress = persisted.bootstrapAddress
+        if (latestConnectionAddress.isBlank() && persisted.connectionAddress.isNotBlank()) {
+            latestConnectionAddress = persisted.connectionAddress
         }
 
         if (intent?.action == Intent.ACTION_VIEW) {
             val deepLink = intent.dataString.orEmpty()
             if (deepLink.isNotBlank()) {
-                val parsed = BootstrapInputParser.parse(deepLink)
-                if (parsed.bootstrapAddress != null) {
-                    showBootstrapDialog(parsed.bootstrapAddress)
+                val parsed = ConnectionInputParser.parse(deepLink)
+                if (parsed.connectionAddress != null) {
+                    showConnectionDialog(parsed.connectionAddress)
                     return true
                 }
 
                 Toast.makeText(
                     this,
-                    parsed.errorMessage ?: getString(R.string.bootstrap_invalid_message),
+                    parsed.errorMessage ?: getString(R.string.connection_invalid_message),
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -168,19 +168,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestRuntimeStartIfNeeded(forceRestart: Boolean = false) {
-        if (latestBootstrapAddress.isBlank()) {
+        if (latestConnectionAddress.isBlank()) {
             isAwaitingRuntimeStart = false
             refreshServiceState()
             return
         }
 
         val snapshot = swarmRuntime.probe()
-        val bootstrapChanged = latestBootstrapAddress != snapshot.bootstrapAddress
+        val connectionChanged = latestConnectionAddress != snapshot.connectionAddress
         if (isRuntimeStartingState(snapshot.state)) {
             refreshServiceState(snapshot)
             return
         }
-        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !bootstrapChanged) {
+        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !connectionChanged) {
             refreshServiceState(snapshot)
             return
         }
@@ -193,13 +193,13 @@ class MainActivity : AppCompatActivity() {
             menuInflater.inflate(R.menu.main_actions, menu)
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
-                    R.id.action_edit_bootstrap -> {
-                        showBootstrapDialog(latestBootstrapAddress)
+                    R.id.action_edit_connection -> {
+                        showConnectionDialog(latestConnectionAddress)
                         true
                     }
 
-                    R.id.action_scan_bootstrap -> {
-                        bootstrapScanLauncher.launch(
+                    R.id.action_scan_connection -> {
+                        connectionScanLauncher.launch(
                             ScanOptions().apply {
                                 setOrientationLocked(false)
                             },
@@ -223,25 +223,25 @@ class MainActivity : AppCompatActivity() {
         }.show()
     }
 
-    private fun showBootstrapDialog(initialValue: String) {
-        val contentView = layoutInflater.inflate(R.layout.dialog_bootstrap_input, null)
-        val input = contentView.findViewById<TextInputEditText>(R.id.bootstrapInputValue)
+    private fun showConnectionDialog(initialValue: String) {
+        val contentView = layoutInflater.inflate(R.layout.dialog_connection_input, null)
+        val input = contentView.findViewById<TextInputEditText>(R.id.connectionInputValue)
         input.setText(initialValue)
 
         AlertDialog.Builder(this)
-            .setTitle(R.string.menu_edit_bootstrap)
+            .setTitle(R.string.menu_edit_connection)
             .setView(contentView)
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.bootstrap_save_action) { _, _ ->
-                val parsed = BootstrapInputParser.parse(input.text?.toString().orEmpty())
-                if (parsed.bootstrapAddress != null) {
-                    latestBootstrapAddress = parsed.bootstrapAddress
-                    runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+            .setPositiveButton(R.string.connection_save_action) { _, _ ->
+                val parsed = ConnectionInputParser.parse(input.text?.toString().orEmpty())
+                if (parsed.connectionAddress != null) {
+                    latestConnectionAddress = parsed.connectionAddress
+                    runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
                     requestRuntimeRestart()
                 } else {
                     Toast.makeText(
                         this,
-                        parsed.errorMessage ?: getString(R.string.bootstrap_invalid_message),
+                        parsed.errorMessage ?: getString(R.string.connection_invalid_message),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -250,17 +250,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestRuntimeRestart() {
-        if (latestBootstrapAddress.isBlank()) {
+        if (latestConnectionAddress.isBlank()) {
             isAwaitingRuntimeStart = false
-            refreshServiceState(RuntimeSnapshot.missing(getString(R.string.bootstrap_required_message)))
+            refreshServiceState(RuntimeSnapshot.missing(getString(R.string.connection_required_message)))
             return
         }
 
         isAwaitingRuntimeStart = true
-        runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+        runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
         GomtmForegroundService.start(
             context = this,
-            bootstrapAddress = latestBootstrapAddress,
+            connectionAddress = latestConnectionAddress,
             forceRestart = true,
         )
         refreshServiceState()
@@ -272,8 +272,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshServiceState(snapshot: RuntimeSnapshot = swarmRuntime.probe()) {
-        if (latestBootstrapAddress.isBlank() && snapshot.bootstrapAddress.isNotBlank()) {
-            latestBootstrapAddress = snapshot.bootstrapAddress
+        if (latestConnectionAddress.isBlank() && snapshot.connectionAddress.isNotBlank()) {
+            latestConnectionAddress = snapshot.connectionAddress
         }
         if (isRuntimeActiveState(snapshot.state)) {
             isAwaitingRuntimeStart = false
@@ -283,7 +283,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderServiceState(snapshot: RuntimeSnapshot) {
         when {
-            latestBootstrapAddress.isBlank() -> renderStatus(
+            latestConnectionAddress.isBlank() -> renderStatus(
                 stateLabel = getString(R.string.service_state_unconfigured),
                 hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_unconfigured) },
                 peerSuffix = getString(R.string.peer_suffix_placeholder),

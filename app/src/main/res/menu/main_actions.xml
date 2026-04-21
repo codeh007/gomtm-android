@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/action_edit_bootstrap"
-        android:title="@string/menu_edit_bootstrap" />
+        android:id="@+id/action_edit_connection"
+        android:title="@string/menu_edit_connection" />
     <item
-        android:id="@+id/action_scan_bootstrap"
-        android:title="@string/menu_scan_bootstrap" />
+        android:id="@+id/action_scan_connection"
+        android:title="@string/menu_scan_connection" />
     <item
         android:id="@+id/action_request_screen_capture"
         android:title="@string/menu_request_screen_capture" />

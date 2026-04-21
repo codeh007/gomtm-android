@@ -30,7 +30,17 @@ class GomtmRuntimeFacade(
         Log.i(LOG_TAG, "bridge class=${bridge.name} methods=${bridge.methods.joinToString { method -> method.name + method.parameterTypes.joinToString(prefix = "(", postfix = ")") { it.simpleName } }}")
         val configClass = Class.forName(configClassName, true, classLoader)
         val configInstance = configClass.getDeclaredConstructor().newInstance()
-        setStringProperty(configClass, configInstance, listOf("SetBootstrapAddr", "setBootstrapAddr"), config.bootstrapAddress)
+        setStringProperty(
+            configClass,
+            configInstance,
+            listOf(
+                "SetConnectionAddr",
+                "setConnectionAddr",
+                "SetConnectionAddress",
+                "setConnectionAddress",
+            ),
+            config.connectionAddress,
+        )
         setBooleanProperty(configClass, configInstance, listOf("SetAutoReconnect", "setAutoReconnect"), config.autoReconnect)
         val baseDir = runtimeBaseDir(context)
         invokeStartBridge(bridge, configClass, configInstance, baseDir, config)
@@ -63,7 +73,7 @@ class GomtmRuntimeFacade(
                 invokeStaticByNames(
                     bridge = bridge,
                     methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
-					args = arrayOf(baseDir, config.bootstrapAddress, config.autoReconnect),
+					args = arrayOf(baseDir, config.connectionAddress, config.autoReconnect),
 					parameterTypes = arrayOf(String::class.java, String::class.java, booleanType),
                 )
                 return
@@ -79,7 +89,7 @@ class GomtmRuntimeFacade(
 			invokeStaticByNames(
 				bridge = bridge,
 				methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
-				args = arrayOf(baseDir, config.bootstrapAddress),
+				args = arrayOf(baseDir, config.connectionAddress),
 				parameterTypes = arrayOf(String::class.java, String::class.java),
 			)
 			return
@@ -244,24 +254,14 @@ class GomtmRuntimeFacade(
         val discoveredPeers = DiscoveredPeer.parseSnapshot(rawDiscoveredPeers)
         val state = invokeStringByNames(bridge, "GetState", "getState").ifBlank { "Unknown" }
         val peerId = invokeStringByNames(bridge, "GetPeerID", "GetPeerId", "getPeerID", "getPeerId")
-        val bootstrapAddress = invokeStringByNames(bridge, "GetBootstrapAddr", "GetBootstrapAddress", "getBootstrapAddr", "getBootstrapAddress")
+        val connectionAddress = invokeStringByNames(
+            bridge,
+            "GetConnectionAddr",
+            "GetConnectionAddress",
+            "getConnectionAddr",
+            "getConnectionAddress",
+        )
         val lastError = invokeStringByNames(bridge, "GetLastError", "getLastError")
-        val normalizedState = if (
-            state.equals("Ready", ignoreCase = true) ||
-            state.equals("Connected", ignoreCase = true) ||
-            state.equals("Registered", ignoreCase = true)
-        ) {
-            val bootstrapPeerId = bootstrapAddress.substringAfterLast("/p2p/", "").trim()
-            val bootstrapPeerMissing = bootstrapPeerId.isNotEmpty() && discoveredPeers.none { it.isBootstrap && it.peerId == bootstrapPeerId }
-            if (bootstrapPeerMissing) "Degraded" else state
-        } else {
-            state
-        }
-        val normalizedLastError = if (normalizedState.equals("Degraded", ignoreCase = true) && lastError.isBlank()) {
-            "bootstrap session observation missing"
-        } else {
-            lastError
-        }
         val autoRestartBridge = runCatching { Class.forName("com.gomtm.swarm.platform.lifecycle.GomtmForegroundService", true, classLoader) }.getOrNull()
         val lastAutoRestartAtMs = autoRestartBridge?.let { bridgeClass ->
             runCatching {
@@ -275,10 +275,10 @@ class GomtmRuntimeFacade(
         } ?: ""
         return RuntimeSnapshot(
             bridgeClassName = bridge.name,
-            state = normalizedState,
+            state = state,
             peerId = peerId,
-            bootstrapAddress = bootstrapAddress,
-            lastError = normalizedLastError,
+            connectionAddress = connectionAddress,
+            lastError = lastError,
             lastAutoRestartAtMs = lastAutoRestartAtMs,
             lastAutoRestartReason = lastAutoRestartReason,
             discoveredPeers = discoveredPeers,

@@ -29,7 +29,7 @@ class GomtmForegroundService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val backgroundWorker = Executors.newSingleThreadExecutor()
     private val tickRunning = AtomicBoolean(false)
-    private var latestBootstrapAddress = ""
+    private var latestConnectionAddress = ""
     private var lastDegradedRestartAtMs = 0L
     private var lastDegradedRestartReason = ""
 
@@ -44,7 +44,7 @@ class GomtmForegroundService : Service() {
                     .forEach { Log.i(LOG_TAG, "runtime_log: $it") }
             }
             if (shouldRestartDegradedRuntime(snapshot)) {
-                Log.w(LOG_TAG, "runtime degraded; restarting foreground runtime bootstrap=$latestBootstrapAddress")
+                Log.w(LOG_TAG, "runtime degraded; restarting foreground runtime connection=$latestConnectionAddress")
                 lastDegradedRestartAtMs = System.currentTimeMillis()
                 lastDegradedRestartReason = snapshot.lastError
                 lastKnownDegradedRestartAtMs = lastDegradedRestartAtMs
@@ -76,7 +76,7 @@ class GomtmForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action ?: ACTION_START) {
             ACTION_STOP -> {
-                runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+                runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
                 stopRuntime()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -85,10 +85,10 @@ class GomtmForegroundService : Service() {
 
             else -> {
                 val persisted = runtimeStore.load()
-                latestBootstrapAddress = intent?.getStringExtra(EXTRA_BOOTSTRAP)?.trim().takeUnless { it.isNullOrEmpty() }
-                    ?: persisted.bootstrapAddress
+                latestConnectionAddress = intent?.getStringExtra(EXTRA_CONNECTION)?.trim().takeUnless { it.isNullOrEmpty() }
+                    ?: persisted.connectionAddress
                 val forceRestart = intent?.getBooleanExtra(EXTRA_FORCE_RESTART, false) ?: false
-                runtimeStore.save(NodeRuntimeConfig(bootstrapAddress = latestBootstrapAddress))
+                runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
                 startRuntime(forceRestart)
                 scheduleTicks()
             }
@@ -103,23 +103,23 @@ class GomtmForegroundService : Service() {
     }
 
     private fun startRuntime(forceRestart: Boolean) {
-        if (latestBootstrapAddress.isBlank()) {
-            Log.w(LOG_TAG, "startRuntime skipped: bootstrap is blank")
+        if (latestConnectionAddress.isBlank()) {
+            Log.w(LOG_TAG, "startRuntime skipped: connection is blank")
             return
         }
         val snapshot = swarmRuntime.probe()
-        val bootstrapChanged = latestBootstrapAddress.isNotBlank() && latestBootstrapAddress != snapshot.bootstrapAddress
-        if ((forceRestart || bootstrapChanged) && (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state))) {
+        val connectionChanged = latestConnectionAddress.isNotBlank() && latestConnectionAddress != snapshot.connectionAddress
+        if ((forceRestart || connectionChanged) && (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state))) {
             runCatching { swarmRuntime.stop() }
         }
-        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !bootstrapChanged) {
+        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !connectionChanged) {
             return
         }
-        Log.i(LOG_TAG, "startRuntime bootstrap=$latestBootstrapAddress forceRestart=$forceRestart")
+        Log.i(LOG_TAG, "startRuntime connection=$latestConnectionAddress forceRestart=$forceRestart")
         swarmRuntime.start(
             this,
             RuntimeLaunchConfig(
-                bootstrapAddress = latestBootstrapAddress,
+                connectionAddress = latestConnectionAddress,
                 autoReconnect = true,
             ),
         )
@@ -140,10 +140,7 @@ class GomtmForegroundService : Service() {
         if (!snapshot.state.equals("Degraded", ignoreCase = true)) {
             return false
         }
-        if (!snapshot.lastError.contains("bootstrap session observation missing", ignoreCase = true)) {
-            return false
-        }
-        if (latestBootstrapAddress.isBlank()) {
+        if (latestConnectionAddress.isBlank()) {
             return false
         }
         val now = System.currentTimeMillis()
@@ -152,7 +149,7 @@ class GomtmForegroundService : Service() {
 
     private fun buildNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(EXTRA_BOOTSTRAP, latestBootstrapAddress)
+            putExtra(EXTRA_CONNECTION, latestConnectionAddress)
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -196,7 +193,7 @@ class GomtmForegroundService : Service() {
     }
 
     companion object {
-        const val EXTRA_BOOTSTRAP = "bootstrap"
+        const val EXTRA_CONNECTION = "connection"
         const val EXTRA_FORCE_RESTART = "force_restart"
 
         private const val ACTION_START = "com.gomtm.swarm.action.START_RUNTIME"
@@ -221,12 +218,12 @@ class GomtmForegroundService : Service() {
 
         fun start(
             context: Context,
-            bootstrapAddress: String,
+            connectionAddress: String,
             forceRestart: Boolean,
         ) {
             val intent = Intent(context, GomtmForegroundService::class.java).apply {
                 action = ACTION_START
-                putExtra(EXTRA_BOOTSTRAP, bootstrapAddress)
+                putExtra(EXTRA_CONNECTION, connectionAddress)
                 putExtra(EXTRA_FORCE_RESTART, forceRestart)
             }
             ContextCompat.startForegroundService(context, intent)

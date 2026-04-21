@@ -12,12 +12,12 @@ class GomtmBootReceiver : BroadcastReceiver() {
             return
         }
         val config = NodeRuntimeStore(context).load()
-        if (config.bootstrapAddress.isBlank()) {
+        if (config.connectionAddress.isBlank()) {
             return
         }
         GomtmForegroundService.start(
             context = context,
-            bootstrapAddress = config.bootstrapAddress,
+            connectionAddress = config.connectionAddress,
             forceRestart = false,
         )
     }

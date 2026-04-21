@@ -12,10 +12,10 @@
         app:boxBackgroundMode="outline">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/bootstrapInputValue"
+            android:id="@+id/connectionInputValue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/bootstrap_input_hint"
+            android:hint="@string/connection_input_hint"
             android:inputType="textUri"
             android:maxLines="4" />
     </com.google.android.material.textfield.TextInputLayout>

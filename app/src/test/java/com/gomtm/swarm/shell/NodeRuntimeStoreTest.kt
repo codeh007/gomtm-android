@@ -6,25 +6,25 @@ import org.junit.Test
 
 class NodeRuntimeStoreTest {
     @Test
-    fun persistsBootstrapAddress() {
+    fun persistsConnectionAddress() {
         val store = NodeRuntimeStore(InMemorySharedPreferences())
         store.clear()
 
-        store.save(NodeRuntimeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"))
+        store.save(NodeRuntimeConfig(connectionAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"))
 
         val restored = store.load()
-        assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", restored.bootstrapAddress)
+        assertEquals("/ip4/127.0.0.1/tcp/4101/p2p/test", restored.connectionAddress)
     }
 
     @Test
     fun clearsPersistedState() {
         val store = NodeRuntimeStore(InMemorySharedPreferences())
-        store.save(NodeRuntimeConfig(bootstrapAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"))
+        store.save(NodeRuntimeConfig(connectionAddress = "/ip4/127.0.0.1/tcp/4101/p2p/test"))
 
         store.clear()
 
         val restored = store.load()
-        assertEquals("", restored.bootstrapAddress)
+        assertEquals("", restored.connectionAddress)
     }
 
     private class InMemorySharedPreferences : SharedPreferences {

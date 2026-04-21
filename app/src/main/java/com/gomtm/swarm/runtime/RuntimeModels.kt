@@ -3,7 +3,7 @@ package com.gomtm.swarm.runtime
 import org.json.JSONObject
 
 data class RuntimeLaunchConfig(
-    val bootstrapAddress: String,
+    val connectionAddress: String,
     val autoReconnect: Boolean = true,
 )
 
@@ -12,7 +12,6 @@ data class DiscoveredPeer(
     val name: String?,
     val state: String,
     val discoveredInCurrentSession: Boolean,
-    val isBootstrap: Boolean,
     val lastSeenAt: String,
 ) {
     companion object {
@@ -35,7 +34,6 @@ data class DiscoveredPeer(
                                     name = item.optString("name").ifBlank { null },
                                     state = item.optString("state", "unknown"),
                                     discoveredInCurrentSession = item.optBoolean("discovered_in_current_session", false),
-                                    isBootstrap = item.optBoolean("is_bootstrap", false),
                                     lastSeenAt = item.optString("last_seen_at"),
                                 ),
                             )
@@ -51,7 +49,7 @@ data class RuntimeSnapshot(
     val bridgeClassName: String,
     val state: String,
     val peerId: String,
-    val bootstrapAddress: String,
+    val connectionAddress: String,
     val lastError: String,
     val lastAutoRestartAtMs: Long = 0L,
     val lastAutoRestartReason: String = "",
@@ -63,7 +61,7 @@ data class RuntimeSnapshot(
             bridgeClassName = "",
             state = "Error",
             peerId = "",
-            bootstrapAddress = "",
+            connectionAddress = "",
             lastError = message,
             lastAutoRestartAtMs = 0L,
             lastAutoRestartReason = "",

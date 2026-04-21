@@ -29,32 +29,32 @@ class MainActivityContractTest {
     fun advancedMenuResourceExposesExpectedActions() {
         val menu = readProjectFile("app/src/main/res/menu/main_actions.xml")
 
-        assertTrue("advanced menu should expose bootstrap edit action", menu.contains("@+id/action_edit_bootstrap"))
-        assertTrue("advanced menu should expose bootstrap scan action", menu.contains("@+id/action_scan_bootstrap"))
+        assertTrue("advanced menu should expose connection edit action", menu.contains("@+id/action_edit_connection"))
+        assertTrue("advanced menu should expose connection scan action", menu.contains("@+id/action_scan_connection"))
         assertTrue("advanced menu should expose screen capture action", menu.contains("@+id/action_request_screen_capture"))
         assertTrue("advanced menu should expose runtime reconnect action", menu.contains("@+id/action_reconnect_runtime"))
-        assertTrue("advanced menu should use bootstrap edit string", menu.contains("@string/menu_edit_bootstrap"))
-        assertTrue("advanced menu should use bootstrap scan string", menu.contains("@string/menu_scan_bootstrap"))
+        assertTrue("advanced menu should use connection edit string", menu.contains("@string/menu_edit_connection"))
+        assertTrue("advanced menu should use connection scan string", menu.contains("@string/menu_scan_connection"))
         assertTrue("advanced menu should use screen capture string", menu.contains("@string/menu_request_screen_capture"))
         assertTrue("advanced menu should use reconnect string", menu.contains("@string/menu_reconnect_runtime"))
     }
 
     @Test
-    fun bootstrapInputDialogUsesSharedTextFieldShell() {
-        val dialog = readProjectFile("app/src/main/res/layout/dialog_bootstrap_input.xml")
+    fun connectionInputDialogUsesSharedTextFieldShell() {
+        val dialog = readProjectFile("app/src/main/res/layout/dialog_connection_input.xml")
 
-        assertTrue("bootstrap dialog should use TextInputLayout", dialog.contains("TextInputLayout"))
-        assertTrue("bootstrap dialog should expose bootstrap input field", dialog.contains("@+id/bootstrapInputValue"))
-        assertTrue("bootstrap dialog should hint bootstrap input", dialog.contains("@string/bootstrap_input_hint"))
-        assertTrue("bootstrap dialog should accept URI text", dialog.contains("android:inputType=\"textUri\""))
+        assertTrue("connection dialog should use TextInputLayout", dialog.contains("TextInputLayout"))
+        assertTrue("connection dialog should expose connection input field", dialog.contains("@+id/connectionInputValue"))
+        assertTrue("connection dialog should hint connection input", dialog.contains("@string/connection_input_hint"))
+        assertTrue("connection dialog should accept URI text", dialog.contains("android:inputType=\"textUri\""))
     }
 
     @Test
-    fun bootstrapParserDoesNotKeepIntentCompatibilityEntry() {
-        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/shell/BootstrapInputParser.kt")
+    fun connectionParserDoesNotKeepIntentCompatibilityEntry() {
+        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/shell/ConnectionInputParser.kt")
 
-        assertFalse("bootstrap parser should not keep parseIntent compat entry", source.contains("fun parseIntent("))
-        assertFalse("bootstrap parser should not read bootstrap intent extras", source.contains("getStringExtra("))
+        assertFalse("connection parser should not keep parseIntent compat entry", source.contains("fun parseIntent("))
+        assertFalse("connection parser should not read intent extras", source.contains("getStringExtra("))
     }
 
     @Test
@@ -70,15 +70,15 @@ class MainActivityContractTest {
             "service_hint_connecting",
             "service_hint_ready",
             "service_hint_error",
-            "menu_edit_bootstrap",
-            "menu_scan_bootstrap",
+            "menu_edit_connection",
+            "menu_scan_connection",
             "menu_request_screen_capture",
             "menu_reconnect_runtime",
-            "bootstrap_input_hint",
-            "bootstrap_save_action",
-            "bootstrap_invalid_message",
-            "bootstrap_required_message",
-            "bootstrap_scan_invalid_message",
+            "connection_input_hint",
+            "connection_save_action",
+            "connection_invalid_message",
+            "connection_required_message",
+            "connection_scan_invalid_message",
         )
 
         expectedNames.forEach { name ->

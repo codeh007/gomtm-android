@@ -20,7 +20,7 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
-    fun mainActivityRoutesAdvancedMenuToBootstrapDialogAndScanner() {
+    fun mainActivityRoutesAdvancedMenuToConnectionDialogAndScanner() {
         val source = String(
             Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
         )
@@ -28,9 +28,14 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("ScanContract"))
         assertTrue(source.contains("ScanOptions"))
         assertTrue(source.contains("showAdvancedMenu"))
-        assertTrue(source.contains("showBootstrapDialog"))
+        assertTrue(source.contains("showConnectionDialog"))
         assertTrue(source.contains("requestRuntimeRestart"))
-        assertTrue(source.contains("R.id.action_scan_bootstrap"))
+        assertTrue(source.contains("R.id.action_scan_connection"))
+        assertTrue(source.contains("R.id.action_edit_connection"))
+        assertTrue(source.contains("R.layout.dialog_connection_input"))
+        assertTrue(source.contains("R.id.connectionInputValue"))
+        assertTrue(source.contains("R.string.menu_edit_connection"))
+        assertTrue(source.contains("R.string.connection_save_action"))
     }
 
     @Test
@@ -39,11 +44,11 @@ class ForegroundRuntimeContractTest {
             Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
         )
 
-        assertFalse(source.contains("BootstrapInputParser.parseIntent(intent)"))
+        assertFalse(source.contains("ConnectionInputParser.parseIntent(intent)"))
         assertFalse(source.contains("getStringExtra("))
-        assertFalse(source.contains("INTERNAL_BOOTSTRAP_EXTRA"))
+        assertFalse(source.contains("INTERNAL_CONNECTION_EXTRA"))
         assertTrue(source.contains("intent?.action == Intent.ACTION_VIEW"))
-        assertTrue(source.contains("showBootstrapDialog(parsed.bootstrapAddress)"))
+        assertTrue(source.contains("showConnectionDialog(parsed.connectionAddress)"))
     }
 
     @Test
@@ -97,7 +102,7 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
-    fun foregroundRuntimeServiceKeepsBootstrapAndTickLoopOutsideActivity() {
+    fun foregroundRuntimeServiceKeepsConnectionStateAndTickLoopOutsideActivity() {
         val source = String(
             Files.readAllBytes(
                 resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmForegroundService.kt"),
@@ -107,27 +112,27 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("START_STICKY"))
         assertTrue(source.contains("GomtmRuntimeFacade"))
         assertTrue(source.contains("processRemoteControlTick"))
-        assertTrue(source.contains("bootstrap"))
-        assertTrue(source.contains("bootstrap is blank"))
+        assertTrue(source.contains("connectionAddress"))
+        assertTrue(source.contains("connection is blank"))
         assertTrue(source.contains("state.equals(\"Degraded\", ignoreCase = true)"))
         assertTrue(source.contains("DEGRADED_RESTART_COOLDOWN_MS"))
         assertTrue(source.contains("lastDegradedRestartAtMs"))
         assertTrue(source.contains("lastDegradedRestartReason"))
         assertTrue(source.contains("getLastDegradedRestartAtMs"))
         assertTrue(source.contains("getLastDegradedRestartReason"))
-        assertTrue(source.contains("snapshot.lastError.contains(\"bootstrap session observation missing\", ignoreCase = true)"))
+        assertFalse(source.contains("bootstrap session observation missing"))
         assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 
     @Test
-    fun bootReceiverOnlyRestoresRuntimeWhenBootstrapWasPersisted() {
+    fun bootReceiverOnlyRestoresRuntimeWhenConnectionAddressWasPersisted() {
         val source = String(
             Files.readAllBytes(
                 resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmBootReceiver.kt"),
             ),
         )
 
-        assertTrue(source.contains("config.bootstrapAddress.isBlank()"))
+        assertTrue(source.contains("config.connectionAddress.isBlank()"))
         assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 

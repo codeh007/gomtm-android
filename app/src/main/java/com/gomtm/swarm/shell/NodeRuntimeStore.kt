@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 
 data class NodeRuntimeConfig(
-    val bootstrapAddress: String,
+    val connectionAddress: String,
 )
 
 class NodeRuntimeStore {
@@ -20,13 +20,15 @@ class NodeRuntimeStore {
 
     fun load(): NodeRuntimeConfig {
         return NodeRuntimeConfig(
-            bootstrapAddress = preferences.getString(KEY_BOOTSTRAP, "").orEmpty(),
+            connectionAddress = preferences.getString(KEY_CONNECTION, null)
+                ?: preferences.getString(KEY_LEGACY_BOOTSTRAP, "").orEmpty(),
         )
     }
 
     fun save(config: NodeRuntimeConfig) {
         preferences.edit()
-            .putString(KEY_BOOTSTRAP, config.bootstrapAddress)
+            .putString(KEY_CONNECTION, config.connectionAddress)
+            .remove(KEY_LEGACY_BOOTSTRAP)
             .apply()
     }
 
@@ -36,6 +38,7 @@ class NodeRuntimeStore {
 
     companion object {
         private const val PREFERENCES_NAME = "gomtm_node_runtime"
-        private const val KEY_BOOTSTRAP = "bootstrap"
+        private const val KEY_CONNECTION = "connection"
+        private const val KEY_LEGACY_BOOTSTRAP = "bootstrap"
     }
 }
