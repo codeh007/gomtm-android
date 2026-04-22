@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         configureWebView()
         val forceRestart = applyIntentOverrides(intent)
         requestRuntimeStartIfNeeded(forceRestart = forceRestart)
+        handleHostAction(intent)
         loadDashP2PEntry()
     }
 
@@ -63,6 +64,7 @@ class MainActivity : AppCompatActivity() {
 
         val forceRestart = applyIntentOverrides(intent)
         requestRuntimeStartIfNeeded(forceRestart = forceRestart)
+        handleHostAction(intent)
         loadDashP2PEntry()
     }
 
@@ -142,6 +144,12 @@ class MainActivity : AppCompatActivity() {
     private fun requestScreenCapturePermission() {
         val manager = getSystemService(MediaProjectionManager::class.java) ?: return
         screenCapturePermissionLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
+    private fun handleHostAction(intent: Intent?) {
+        if (intent?.action == ACTION_REQUEST_SCREEN_CAPTURE) {
+            webView.post { requestScreenCapturePermission() }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -276,5 +284,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val BRIDGE_NAME = "GomtmHostBridge"
+        const val ACTION_REQUEST_SCREEN_CAPTURE = "com.gomtm.swarm.action.REQUEST_SCREEN_CAPTURE"
     }
 }

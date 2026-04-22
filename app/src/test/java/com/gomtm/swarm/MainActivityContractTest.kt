@@ -33,6 +33,15 @@ class MainActivityContractTest {
     }
 
     @Test
+    fun mainActivitySupportsDedicatedScreenCaptureAction() {
+        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/MainActivity.kt")
+
+        assertTrue("MainActivity should define a dedicated screen capture action", source.contains("ACTION_REQUEST_SCREEN_CAPTURE"))
+        assertTrue("MainActivity should handle the dedicated screen capture action", source.contains("intent?.action == ACTION_REQUEST_SCREEN_CAPTURE"))
+        assertTrue("MainActivity should route the action to requestScreenCapturePermission", source.contains("requestScreenCapturePermission()"))
+    }
+
+    @Test
     fun mainActivityRestrictsWebViewNavigationToDashP2PFamily() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/MainActivity.kt")
 
