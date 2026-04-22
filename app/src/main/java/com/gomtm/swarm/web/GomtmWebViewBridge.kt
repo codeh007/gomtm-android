@@ -44,13 +44,6 @@ class GomtmWebViewBridge(
     fun listDiscoveredPeers(): String = encodeDiscoveredPeers(runtime.probe().discoveredPeers)
 
     @JavascriptInterface
-    fun getPeerCapabilities(peerId: String): String {
-        val snapshot = runtime.probe()
-        val peer = snapshot.discoveredPeers.firstOrNull { it.peerId == peerId }
-        return encodePeerCapabilities(peerId, peer, snapshot)
-    }
-
-    @JavascriptInterface
     fun saveConnectionConfig(payloadJson: String): String {
         val rawConnection = extractConnectionValue(payloadJson)
         val parsed = ConnectionInputParser.parse(rawConnection)
@@ -127,43 +120,6 @@ class GomtmWebViewBridge(
             .put("multiaddrs", JSONArray())
             .put("lastDiscoveredAt", peer.lastSeenAt)
             .put("lastSeenAt", peer.lastSeenAt)
-    }
-
-    private fun encodePeerCapabilities(peerId: String, peer: DiscoveredPeer?, snapshot: RuntimeSnapshot): String {
-        val capabilityReason = if (peer == null) {
-            "target_peer_not_discovered"
-        } else {
-            "target_peer_capability_truth_unavailable"
-        }
-        val capabilities = JSONArray().put(
-            JSONObject()
-                .put("name", "android.native_remote_v2_webrtc")
-                .put("state", "unavailable")
-                .put("reason", capabilityReason),
-        )
-
-        return JSONObject()
-            .put("node", JSONObject()
-                    .put("peerId", peer?.peerId ?: peerId)
-                    .put("platform", "android")
-                    .put("runtimeStatus", peer?.state ?: "unknown")
-                    .put("lastError", "")
-                    .put("multiaddrs", JSONArray()))
-            .put("capabilities", capabilities)
-            .put(
-                "diagnostics",
-                JSONObject()
-                    .put("runtimeState", snapshot.state)
-                    .put("currentPeerId", snapshot.peerId)
-                    .put("connectionAddress", snapshot.connectionAddress)
-                    .put("requestedPeerId", peerId)
-                    .put("resolvedPeerId", peer?.peerId ?: JSONObject.NULL)
-                    .put("capabilitySource", "target_peer_unavailable")
-                    .put("capabilityReason", capabilityReason)
-                    .put("peerState", peer?.state ?: JSONObject.NULL)
-                    .put("hostProjectionBlocked", true),
-            )
-            .toString()
     }
 
     private fun deriveRuntimeStatus(snapshot: RuntimeSnapshot, configuredConnectionAddress: String): String {

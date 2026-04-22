@@ -17,7 +17,7 @@ class GomtmWebViewBridgeContractTest {
         assertTrue(Regex("""@JavascriptInterface\s+fun getConnectionConfig\(\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun getRuntimeSnapshot\(\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun listDiscoveredPeers\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun getPeerCapabilities\(peerId: String\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun getPeerCapabilities\(peerId: String\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun saveConnectionConfig\(payloadJson: String\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun requestScreenCapture\(\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun requestRuntimeRestart\(\)""").containsMatchIn(source))
@@ -40,7 +40,7 @@ class GomtmWebViewBridgeContractTest {
     }
 
     @Test
-    fun bridgePublishesSharedRuntimeAndCapabilityPayloadShape() {
+    fun bridgePublishesHostRuntimePayloadShapeOnly() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
 
         assertTrue(source.contains("put(\"status\""))
@@ -49,21 +49,9 @@ class GomtmWebViewBridgeContractTest {
         assertTrue(source.contains("put(\"serverUrl\""))
         assertTrue(source.contains("put(\"multiaddrs\""))
         assertTrue(source.contains("put(\"lastDiscoveredAt\""))
-        assertTrue(source.contains("put(\"node\""))
-        assertTrue(source.contains("android.native_remote_v2_webrtc"))
-        assertTrue(source.contains("target_peer_capability_truth_unavailable"))
-    }
-
-    @Test
-    fun getPeerCapabilitiesDoesNotProjectHostLocalCapabilityStateOntoRequestedPeer() {
-        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
-
-        assertTrue(source.contains("peer?.peerId ?: peerId"))
-        assertTrue(source.contains("peer?.state ?: \"unknown\""))
-        assertFalse(source.contains("runtime.remoteControlPermissionState(context)"))
-        assertFalse(source.contains("AndroidScreenStreamHost.currentCapabilityState"))
-        assertFalse(source.contains("AndroidWebRtcScreenHost.forContext"))
-        assertFalse(source.contains("projectRemoteControlWebRtcBridgeState"))
+        assertFalse(source.contains("put(\"node\""))
+        assertFalse(source.contains("android.native_remote_v2_webrtc"))
+        assertFalse(source.contains("target_peer_capability_truth_unavailable"))
     }
 
     @Test
