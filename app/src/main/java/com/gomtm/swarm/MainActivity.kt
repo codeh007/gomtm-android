@@ -1,70 +1,38 @@
 package com.gomtm.swarm
 
-import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.graphics.drawable.ColorDrawable
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.ImageButton
-import android.widget.PopupMenu
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.ColorRes
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import com.google.android.material.textfield.TextInputEditText
 import com.gomtm.swarm.platform.lifecycle.GomtmForegroundService
 import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
 import com.gomtm.swarm.runtime.GomtmRuntimeFacade
-import com.gomtm.swarm.runtime.RuntimeSnapshot
 import com.gomtm.swarm.shell.ConnectionInputParser
 import com.gomtm.swarm.shell.NodeRuntimeConfig
 import com.gomtm.swarm.shell.NodeRuntimeStore
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
-import java.util.Locale
+import com.gomtm.swarm.web.GomtmWebViewBridge
 
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = GomtmRuntimeFacade()
     private val runtimeStore by lazy { NodeRuntimeStore(this) }
-    private val refreshHandler = Handler(Looper.getMainLooper())
-    private val autoRefreshRunnable = object : Runnable {
-        override fun run() {
-            val snapshot = swarmRuntime.probe()
-            val drainedLogs = swarmRuntime.drainLogs().trim()
-            if (drainedLogs.isNotBlank()) {
-                drainedLogs.lineSequence()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .forEach { Log.i(LOG_TAG, "runtime_log: $it") }
-            }
-            Log.i(
-                LOG_TAG,
-                "probe state=${snapshot.state} peerId=${snapshot.peerId} connection=${snapshot.connectionAddress} lastError=${snapshot.lastError}",
-            )
-            refreshServiceState(snapshot)
-            refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
-        }
-    }
+    private val dashP2PEntryUri by lazy { Uri.parse(BuildConfig.GOMTM_UI_DASH_P2P_URL) }
 
-    private lateinit var runtimeSurface: View
-    private lateinit var peerSuffixValue: TextView
-    private lateinit var advancedMenuButton: ImageButton
-    private lateinit var serviceStateValue: TextView
-    private lateinit var serviceStatusHint: TextView
-    private lateinit var versionValue: TextView
+    private lateinit var webView: WebView
+    private lateinit var webErrorMessage: TextView
 
-    private var currentSurfaceColor: Int? = null
-    private var isAwaitingRuntimeStart = false
+    private var hasPageLoadError = false
     private var latestConnectionAddress = ""
 
     private val screenCapturePermissionLauncher = registerForActivityResult(
@@ -74,70 +42,33 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK && data != null) {
             ScreenCaptureService.startProjection(this, result.resultCode, data)
         }
-        refreshServiceState()
-    }
-
-    private val connectionScanLauncher = registerForActivityResult(ScanContract()) { result ->
-        val contents = result.contents.orEmpty()
-        if (contents.isBlank()) {
-            return@registerForActivityResult
-        }
-
-        val parsed = ConnectionInputParser.parse(contents)
-        if (parsed.connectionAddress != null) {
-            showConnectionDialog(parsed.connectionAddress)
-        } else {
-            Toast.makeText(
-                this,
-                parsed.errorMessage ?: getString(R.string.connection_scan_invalid_message),
-                Toast.LENGTH_SHORT,
-            ).show()
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        runtimeSurface = findViewById(R.id.runtimeSurface)
-        peerSuffixValue = findViewById(R.id.peerSuffixValue)
-        versionValue = findViewById(R.id.surfaceVersion)
-        advancedMenuButton = findViewById(R.id.advancedMenuButton)
-        serviceStateValue = findViewById(R.id.serviceStateValue)
-        serviceStatusHint = findViewById(R.id.serviceStatusHint)
+        webView = findViewById(R.id.p2pWebView)
+        webErrorMessage = findViewById(R.id.webErrorMessage)
 
-        versionValue.text = getString(R.string.surface_version_format, BuildConfig.VERSION_NAME)
-        advancedMenuButton.setOnClickListener { showAdvancedMenu(it) }
-
-        val skipImmediateStart = applyIntentOverrides(intent)
-        refreshServiceState()
-        if (!skipImmediateStart) {
-            requestRuntimeStartIfNeeded(forceRestart = false)
-        }
+        configureWebView()
+        val forceRestart = applyIntentOverrides(intent)
+        requestRuntimeStartIfNeeded(forceRestart = forceRestart)
+        loadDashP2PEntry()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val skipImmediateStart = applyIntentOverrides(intent)
-        if (!skipImmediateStart) {
-            requestRuntimeStartIfNeeded(forceRestart = true)
-        }
-    }
 
-    override fun onStart() {
-        super.onStart()
-        refreshHandler.removeCallbacks(autoRefreshRunnable)
-        refreshHandler.post(autoRefreshRunnable)
-    }
-
-    override fun onStop() {
-        refreshHandler.removeCallbacks(autoRefreshRunnable)
-        super.onStop()
+        val forceRestart = applyIntentOverrides(intent)
+        requestRuntimeStartIfNeeded(forceRestart = forceRestart)
+        loadDashP2PEntry()
     }
 
     override fun onDestroy() {
-        refreshHandler.removeCallbacks(autoRefreshRunnable)
+        webView.removeJavascriptInterface(BRIDGE_NAME)
+        webView.destroy()
         super.onDestroy()
     }
 
@@ -149,121 +80,63 @@ class MainActivity : AppCompatActivity() {
 
         if (intent?.action == Intent.ACTION_VIEW) {
             val deepLink = intent.dataString.orEmpty()
-            if (deepLink.isNotBlank()) {
-                val parsed = ConnectionInputParser.parse(deepLink)
-                if (parsed.connectionAddress != null) {
-                    showConnectionDialog(parsed.connectionAddress)
-                    return true
-                }
-
-                Toast.makeText(
-                    this,
-                    parsed.errorMessage ?: getString(R.string.connection_invalid_message),
-                    Toast.LENGTH_SHORT,
-                ).show()
+            if (deepLink.isBlank()) {
+                return false
             }
+
+            val parsed = ConnectionInputParser.parse(deepLink)
+            if (parsed.connectionAddress != null) {
+                latestConnectionAddress = parsed.connectionAddress
+                runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
+                return true
+            }
+
+            Toast.makeText(
+                this,
+                parsed.errorMessage ?: getString(R.string.connection_invalid_message),
+                Toast.LENGTH_SHORT,
+            ).show()
         }
 
         return false
     }
 
     private fun requestRuntimeStartIfNeeded(forceRestart: Boolean = false) {
-        if (latestConnectionAddress.isBlank()) {
-            isAwaitingRuntimeStart = false
-            refreshServiceState()
+        val connectionAddress = latestConnectionAddress.ifBlank { runtimeStore.load().connectionAddress }
+        if (connectionAddress.isBlank()) {
             return
         }
+        latestConnectionAddress = connectionAddress
 
         val snapshot = swarmRuntime.probe()
-        val connectionChanged = latestConnectionAddress != snapshot.connectionAddress
+        val connectionChanged = connectionAddress != snapshot.connectionAddress
         if (isRuntimeStartingState(snapshot.state)) {
-            refreshServiceState(snapshot)
             return
         }
         if (!forceRestart && isRuntimeActiveState(snapshot.state) && !connectionChanged) {
-            refreshServiceState(snapshot)
             return
         }
 
-        requestRuntimeRestart()
+        requestRuntimeRestart(connectionAddress = connectionAddress)
     }
 
-    private fun showAdvancedMenu(anchor: View) {
-        PopupMenu(this, anchor).apply {
-            menuInflater.inflate(R.menu.main_actions, menu)
-            setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    R.id.action_edit_connection -> {
-                        showConnectionDialog(latestConnectionAddress)
-                        true
-                    }
-
-                    R.id.action_scan_connection -> {
-                        connectionScanLauncher.launch(
-                            ScanOptions().apply {
-                                setOrientationLocked(false)
-                            },
-                        )
-                        true
-                    }
-
-                    R.id.action_request_screen_capture -> {
-                        requestScreenCapturePermission()
-                        true
-                    }
-
-                    R.id.action_reconnect_runtime -> {
-                        requestRuntimeRestart()
-                        true
-                    }
-
-                    else -> false
-                }
-            }
-        }.show()
-    }
-
-    private fun showConnectionDialog(initialValue: String) {
-        val contentView = layoutInflater.inflate(R.layout.dialog_connection_input, null)
-        val input = contentView.findViewById<TextInputEditText>(R.id.connectionInputValue)
-        input.setText(initialValue)
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.menu_edit_connection)
-            .setView(contentView)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.connection_save_action) { _, _ ->
-                val parsed = ConnectionInputParser.parse(input.text?.toString().orEmpty())
-                if (parsed.connectionAddress != null) {
-                    latestConnectionAddress = parsed.connectionAddress
-                    runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
-                    requestRuntimeRestart()
-                } else {
-                    Toast.makeText(
-                        this,
-                        parsed.errorMessage ?: getString(R.string.connection_invalid_message),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
-            }
-            .show()
-    }
-
-    private fun requestRuntimeRestart() {
-        if (latestConnectionAddress.isBlank()) {
-            isAwaitingRuntimeStart = false
-            refreshServiceState(RuntimeSnapshot.missing(getString(R.string.connection_required_message)))
+    private fun requestRuntimeRestart(connectionAddress: String? = null) {
+        val restartAddress = connectionAddress
+            ?.trim()
+            .orEmpty()
+            .ifBlank { latestConnectionAddress.ifBlank { runtimeStore.load().connectionAddress } }
+        if (restartAddress.isBlank()) {
+            Toast.makeText(this, R.string.connection_required_message, Toast.LENGTH_SHORT).show()
             return
         }
 
-        isAwaitingRuntimeStart = true
+        latestConnectionAddress = restartAddress
         runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
         GomtmForegroundService.start(
             context = this,
             connectionAddress = latestConnectionAddress,
             forceRestart = true,
         )
-        refreshServiceState()
     }
 
     private fun requestScreenCapturePermission() {
@@ -271,100 +144,123 @@ class MainActivity : AppCompatActivity() {
         screenCapturePermissionLauncher.launch(manager.createScreenCaptureIntent())
     }
 
-    private fun refreshServiceState(snapshot: RuntimeSnapshot = swarmRuntime.probe()) {
-        if (latestConnectionAddress.isBlank() && snapshot.connectionAddress.isNotBlank()) {
-            latestConnectionAddress = snapshot.connectionAddress
-        }
-        if (isRuntimeActiveState(snapshot.state)) {
-            isAwaitingRuntimeStart = false
-        }
-        renderServiceState(snapshot)
-    }
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun configureWebView() {
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.allowFileAccess = false
+        webView.settings.allowContentAccess = false
+        webView.settings.javaScriptCanOpenWindowsAutomatically = false
+        webView.settings.setSupportMultipleWindows(false)
+        webView.addJavascriptInterface(
+            GomtmWebViewBridge(
+                activity = this,
+                runtime = swarmRuntime,
+                store = runtimeStore,
+                onScreenCaptureRequested = ::requestScreenCapturePermission,
+                onRuntimeRestartRequested = ::requestRuntimeRestart,
+            ),
+            BRIDGE_NAME,
+        )
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                if (request?.isForMainFrame != true) {
+                    return false
+                }
+                if (isAllowedDashP2PUrl(request.url)) {
+                    return false
+                }
+                if (!openInExternalBrowser(request.url)) {
+                    showWebError(getString(R.string.web_navigation_blocked_message))
+                }
+                return true
+            }
 
-    private fun renderServiceState(snapshot: RuntimeSnapshot) {
-        when {
-            latestConnectionAddress.isBlank() -> renderStatus(
-                stateLabel = getString(R.string.service_state_unconfigured),
-                hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_unconfigured) },
-                peerSuffix = getString(R.string.peer_suffix_placeholder),
-                surfaceBackgroundColor = R.color.gomtm_surface_dim,
-                peerTextColor = R.color.gomtm_peer_suffix_dim,
-                versionTextColor = R.color.gomtm_version_dim,
-            )
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?,
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    showWebError(error?.description?.toString())
+                }
+            }
 
-            snapshot.state.equals("Degraded", ignoreCase = true) -> renderStatus(
-                stateLabel = getString(R.string.service_state_connecting),
-                hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_connecting) },
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                surfaceBackgroundColor = R.color.gomtm_surface_dim,
-                peerTextColor = R.color.gomtm_peer_suffix_dim,
-                versionTextColor = R.color.gomtm_version_dim,
-            )
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: WebResourceResponse?,
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 0) >= 400) {
+                    showWebError("HTTP ${errorResponse?.statusCode}")
+                }
+            }
 
-            isRuntimeActiveState(snapshot.state) -> renderStatus(
-                stateLabel = getString(R.string.service_state_ready),
-                hint = getString(R.string.service_hint_ready),
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                surfaceBackgroundColor = R.color.gomtm_surface_live,
-                peerTextColor = R.color.gomtm_peer_suffix_live,
-                versionTextColor = R.color.gomtm_version_live,
-            )
-
-            snapshot.state.equals("Error", ignoreCase = true) -> renderStatus(
-                stateLabel = getString(R.string.service_state_error),
-                hint = snapshot.lastError.ifBlank { getString(R.string.service_hint_error) },
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                surfaceBackgroundColor = R.color.gomtm_surface_error,
-                peerTextColor = R.color.gomtm_peer_suffix_error,
-                versionTextColor = R.color.gomtm_version_error,
-            )
-
-            isAwaitingRuntimeStart || snapshot.state.isNotBlank() -> renderStatus(
-                stateLabel = getString(R.string.service_state_connecting),
-                hint = getString(R.string.service_hint_connecting),
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                surfaceBackgroundColor = R.color.gomtm_surface_dim,
-                peerTextColor = R.color.gomtm_peer_suffix_dim,
-                versionTextColor = R.color.gomtm_version_dim,
-            )
-
-            else -> renderStatus(
-                stateLabel = getString(R.string.service_state_connecting),
-                hint = getString(R.string.service_hint_connecting),
-                peerSuffix = peerSuffixForSnapshot(snapshot),
-                surfaceBackgroundColor = R.color.gomtm_surface_dim,
-                peerTextColor = R.color.gomtm_peer_suffix_dim,
-                versionTextColor = R.color.gomtm_version_dim,
-            )
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                if (!hasPageLoadError) {
+                    hideWebError()
+                }
+            }
         }
     }
 
-    private fun renderStatus(
-        stateLabel: String,
-        hint: String,
-        peerSuffix: String,
-        @ColorRes surfaceBackgroundColor: Int,
-        @ColorRes peerTextColor: Int,
-        @ColorRes versionTextColor: Int,
-    ) {
-        val versionColor = resolveColor(versionTextColor)
-        peerSuffixValue.text = peerSuffix
-        peerSuffixValue.setTextColor(resolveColor(peerTextColor))
-        serviceStateValue.text = stateLabel
-        serviceStateValue.setTextColor(versionColor)
-        serviceStatusHint.text = hint
-        serviceStatusHint.setTextColor(versionColor)
-        versionValue.setTextColor(versionColor)
-        advancedMenuButton.imageTintList = ColorStateList.valueOf(versionColor)
-        animateSurfaceBackground(resolveColor(surfaceBackgroundColor))
+    private fun loadDashP2PEntry() {
+        hasPageLoadError = false
+        webErrorMessage.text = getString(R.string.web_loading_message)
+        hideWebError()
+        webView.loadUrl(BuildConfig.GOMTM_UI_DASH_P2P_URL)
     }
 
-    private fun peerSuffixForSnapshot(snapshot: RuntimeSnapshot): String {
-        val peerId = snapshot.peerId.trim()
-        if (peerId.isEmpty()) {
-            return getString(R.string.peer_suffix_placeholder)
+    private fun showWebError(reason: String?) {
+        hasPageLoadError = true
+        webErrorMessage.text = if (reason.isNullOrBlank()) {
+            getString(R.string.web_error_message)
+        } else {
+            getString(R.string.web_error_reason_format, reason)
         }
-        return peerId.takeLast(8).uppercase(Locale.ROOT)
+        webErrorMessage.visibility = View.VISIBLE
+        webView.visibility = View.GONE
+    }
+
+    private fun hideWebError() {
+        webErrorMessage.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+    }
+
+    private fun isAllowedDashP2PUrl(uri: Uri?): Boolean {
+        if (uri == null || !uri.isHierarchical) {
+            return false
+        }
+
+        if (!uri.scheme.equals(dashP2PEntryUri.scheme, ignoreCase = true)) {
+            return false
+        }
+        if (!uri.authority.equals(dashP2PEntryUri.authority, ignoreCase = true)) {
+            return false
+        }
+
+        val allowedPath = dashP2PEntryUri.path.orEmpty().trimEnd('/')
+        val candidatePath = uri.path.orEmpty().trimEnd('/')
+        return candidatePath == allowedPath || candidatePath.startsWith("$allowedPath/")
+    }
+
+    private fun openInExternalBrowser(uri: Uri): Boolean {
+        val scheme = uri.scheme.orEmpty()
+        if (!scheme.equals("http", ignoreCase = true) && !scheme.equals("https", ignoreCase = true)) {
+            return false
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        if (intent.resolveActivity(packageManager) == null) {
+            return false
+        }
+        startActivity(intent)
+        return true
     }
 
     private fun isRuntimeActiveState(state: String): Boolean {
@@ -378,29 +274,7 @@ class MainActivity : AppCompatActivity() {
             state.equals("Connecting", ignoreCase = true)
     }
 
-    private fun animateSurfaceBackground(targetColor: Int) {
-        val startColor = currentSurfaceColor ?: (runtimeSurface.background as? ColorDrawable)?.color ?: targetColor
-        if (startColor == targetColor) {
-            runtimeSurface.setBackgroundColor(targetColor)
-            currentSurfaceColor = targetColor
-            return
-        }
-        ValueAnimator.ofArgb(startColor, targetColor).apply {
-            duration = 280L
-            interpolator = AccelerateDecelerateInterpolator()
-            addUpdateListener { animator ->
-                val color = animator.animatedValue as Int
-                runtimeSurface.setBackgroundColor(color)
-                currentSurfaceColor = color
-            }
-            start()
-        }
-    }
-
-    private fun resolveColor(@ColorRes colorRes: Int): Int = ContextCompat.getColor(this, colorRes)
-
     companion object {
-        private const val LOG_TAG = "GomtmMainActivity"
-        private const val REFRESH_INTERVAL_MS = 750L
+        private const val BRIDGE_NAME = "GomtmHostBridge"
     }
 }

@@ -1,74 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/runtimeSurface"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/gomtm_surface_dim"
-    android:padding="20dp">
+    android:background="@android:color/black">
 
-    <ImageButton
-        android:id="@+id/advancedMenuButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="top|end"
-        android:background="@android:color/transparent"
-        android:contentDescription="@string/advanced_menu_action"
-        android:src="@android:drawable/ic_menu_more"
-        app:tint="@color/gomtm_version_dim" />
+    <WebView
+        android:id="@+id/p2pWebView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/webErrorMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:gravity="center"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/serviceStateValue"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/service_state_unconfigured"
-            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-            android:textColor="@color/gomtm_version_dim" />
-
-        <TextView
-            android:id="@+id/peerSuffixValue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:autoSizeMaxTextSize="88sp"
-            android:autoSizeMinTextSize="32sp"
-            android:autoSizeStepGranularity="2sp"
-            android:autoSizeTextType="uniform"
-            android:fontFamily="monospace"
-            android:gravity="center"
-            android:includeFontPadding="false"
-            android:letterSpacing="0.06"
-            android:maxLines="1"
-            android:text="@string/peer_suffix_placeholder"
-            android:textAllCaps="true"
-            android:textAppearance="@style/TextAppearance.Material3.DisplayLarge"
-            android:textColor="@color/gomtm_peer_suffix_dim"
-            android:textFontWeight="700" />
-
-        <TextView
-            android:id="@+id/serviceStatusHint"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/service_hint_unconfigured"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-            android:textColor="@color/gomtm_version_dim" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/surfaceVersion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:alpha="0.72"
-        android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
-        android:textColor="@color/gomtm_version_dim" />
+        android:padding="24dp"
+        android:text="@string/web_loading_message"
+        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+        android:textColor="@android:color/white"
+        android:visibility="gone" />
 
 </FrameLayout>

@@ -9,10 +9,9 @@ import org.junit.Test
 
 class ForegroundRuntimeContractTest {
     @Test
-    fun manifestDeclaresDeepLinkAndCameraPermissionForBootstrapImport() {
+    fun manifestDeclaresDeepLinkForBootstrapImport() {
         val manifest = String(Files.readAllBytes(resolveProjectPath("app/src/main/AndroidManifest.xml")))
 
-        assertTrue(manifest.contains("android.permission.CAMERA"))
         assertTrue(manifest.contains("android.intent.action.VIEW"))
         assertTrue(manifest.contains("android.intent.category.BROWSABLE"))
         assertTrue(manifest.contains("android:scheme=\"gomtm\""))
@@ -20,22 +19,29 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
-    fun mainActivityRoutesAdvancedMenuToConnectionDialogAndScanner() {
+    fun mainActivityHostsWebViewAndKeepsHostLevelRuntimeActions() {
         val source = String(
             Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
         )
 
-        assertTrue(source.contains("ScanContract"))
-        assertTrue(source.contains("ScanOptions"))
-        assertTrue(source.contains("showAdvancedMenu"))
-        assertTrue(source.contains("showConnectionDialog"))
-        assertTrue(source.contains("requestRuntimeRestart"))
-        assertTrue(source.contains("R.id.action_scan_connection"))
-        assertTrue(source.contains("R.id.action_edit_connection"))
-        assertTrue(source.contains("R.layout.dialog_connection_input"))
-        assertTrue(source.contains("R.id.connectionInputValue"))
-        assertTrue(source.contains("R.string.menu_edit_connection"))
-        assertTrue(source.contains("R.string.connection_save_action"))
+        assertTrue(source.contains("private lateinit var webView: WebView"))
+        assertTrue(source.contains("private lateinit var webErrorMessage: TextView"))
+        assertTrue(source.contains("configureWebView()"))
+        assertTrue(source.contains("requestScreenCapturePermission()"))
+        assertTrue(source.contains("requestRuntimeRestart(connectionAddress: String? = null)"))
+        assertFalse(source.contains("PopupMenu"))
+        assertFalse(source.contains("showConnectionDialog"))
+    }
+
+    @Test
+    fun mainActivityRestartsFromSavedConnectionConfigNotStaleActivityState() {
+        val source = String(
+            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
+        )
+
+        assertTrue(source.contains("val restartAddress = connectionAddress"))
+        assertTrue(source.contains("runtimeStore.load().connectionAddress"))
+        assertTrue(source.contains("latestConnectionAddress = restartAddress"))
     }
 
     @Test
@@ -48,7 +54,8 @@ class ForegroundRuntimeContractTest {
         assertFalse(source.contains("getStringExtra("))
         assertFalse(source.contains("INTERNAL_CONNECTION_EXTRA"))
         assertTrue(source.contains("intent?.action == Intent.ACTION_VIEW"))
-        assertTrue(source.contains("showConnectionDialog(parsed.connectionAddress)"))
+        assertTrue(source.contains("ConnectionInputParser.parse(deepLink)"))
+        assertTrue(source.contains("runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))"))
     }
 
     @Test
@@ -60,19 +67,20 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("private fun isRuntimeStartingState(state: String): Boolean"))
         assertTrue(
             Regex(
-                """if \(isRuntimeStartingState\(snapshot\.state\)\) \{\s*refreshServiceState\(snapshot\)\s*return\s*}""",
+                """if \(isRuntimeStartingState\(snapshot\.state\)\) \{\s*return\s*}""",
             ).containsMatchIn(source),
         )
     }
 
     @Test
-    fun mainActivityTreatsDegradedAsRecoveringNotReady() {
+    fun mainActivityUsesMinimalWebFallbackInsteadOfOldNativeStatusShell() {
         val source = String(
             Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
         )
 
-        assertTrue(source.contains("snapshot.state.equals(\"Degraded\", ignoreCase = true) -> renderStatus("))
-        assertTrue(source.contains("snapshot.lastError.ifBlank { getString(R.string.service_hint_connecting) }"))
+        assertTrue(source.contains("webErrorMessage.visibility = View.VISIBLE"))
+        assertTrue(source.contains("webView.visibility = View.GONE"))
+        assertFalse(source.contains("renderServiceState("))
     }
 
     @Test
@@ -160,6 +168,7 @@ class ForegroundRuntimeContractTest {
 
         assertTrue(buildScript.contains("gomtmReleaseTag"))
         assertTrue(buildScript.contains("versionCodeFrom(appVersionName)"))
+        assertTrue(buildScript.contains("GOMTM_UI_DASH_P2P_URL"))
         assertTrue(releaseWorkflow.contains("GOMTM_RELEASE_TAG="))
         assertTrue(releaseWorkflow.contains("-PgomtmReleaseTag=\"${'$'}{RELEASE_TAG}\""))
     }

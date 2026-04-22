@@ -24,6 +24,14 @@ val appVersionName = normalizeVersionName(
         ?: providers.environmentVariable("GOMTM_RELEASE_TAG").orNull,
 )
 val appVersionCode = versionCodeFrom(appVersionName)
+val gomtmDashP2PUrl = "https://gomtmui-dev.yuepa8.com/dash/p2p"
+val localPinnedRuntimeAar = project.file("libs/gomtm-swarm-android.aar")
+val worktreePinnedRuntimeAar = rootDir.resolve("../../app/libs/gomtm-swarm-android.aar")
+val pinnedRuntimeAar = when {
+    localPinnedRuntimeAar.exists() -> localPinnedRuntimeAar
+    worktreePinnedRuntimeAar.exists() -> worktreePinnedRuntimeAar
+    else -> error("missing gomtm-swarm-android.aar in app/libs or shared worktree fallback")
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -40,6 +48,7 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = appVersionCode
         versionName = appVersionName
+        buildConfigField("String", "GOMTM_UI_DASH_P2P_URL", "\"$gomtmDashP2PUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -85,13 +94,12 @@ android {
 }
 
 dependencies {
-    implementation(files("libs/gomtm-swarm-android.aar"))
+    implementation(files(pinnedRuntimeAar))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.zxing.android.embedded)
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.test.ext.junit)

@@ -512,11 +512,10 @@ class SwarmRuntimeTest {
     }
 
     private fun resolveProjectPath(relative: String): Path {
-        val candidates = listOf(
-            Paths.get(relative),
-            Paths.get("../$relative"),
-        )
-        return candidates.firstOrNull(Files::exists)
+        val workingDir = Paths.get("").toAbsolutePath().normalize()
+        return generateSequence(workingDir) { it.parent }
+            .map { it.resolve(relative).normalize() }
+            .firstOrNull(Files::exists)
             ?: error("path not found: $relative")
     }
 
