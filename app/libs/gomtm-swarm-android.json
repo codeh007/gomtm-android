@@ -1,11 +1,11 @@
 {
-  "aar_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/403023885",
+  "aar_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/403280649",
   "artifact": "gomtm-swarm-android.aar",
-  "commit": "f924ce117247aa70b41d1ebdd139b84a4087dc9c",
-  "metadata_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/403024025",
-  "published_at": "2026-04-23T02:27:08Z",
-  "sha256": "01a2d298e31c1a63f568629081115f17e411dfc8699c7229a7d0ed22e8cb78b7",
-  "source_ref": "three-end-provisioning-hard-cut",
+  "commit": "50a5d9342140be185fad0116c7dd15481c51dce8",
+  "metadata_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/403280704",
+  "published_at": "2026-04-23T09:18:12Z",
+  "sha256": "25c052259da7f4d166e497ab9b14e1abeba63cc51f94c9cfcb6024b52866a5cc",
+  "source_ref": "main",
   "source_repo": "github.com/codeh007/gomtm",
-  "version": "android-swarm-20260423-0226"
+  "version": "android-swarm-20260423-0917"
 }
