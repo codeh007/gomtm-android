@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.webkit.WebResourceError
@@ -27,7 +26,6 @@ import com.gomtm.swarm.web.GomtmWebViewBridge
 class MainActivity : AppCompatActivity() {
     private val swarmRuntime = GomtmRuntimeFacade()
     private val runtimeStore by lazy { NodeRuntimeStore(this) }
-    private val dashP2PEntryUri by lazy { Uri.parse(BuildConfig.GOMTM_UI_DASH_P2P_URL) }
 
     private lateinit var webView: WebView
     private lateinit var webErrorMessage: TextView
@@ -171,19 +169,6 @@ class MainActivity : AppCompatActivity() {
             BRIDGE_NAME,
         )
         webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                if (request?.isForMainFrame != true) {
-                    return false
-                }
-                if (isAllowedDashP2PUrl(request.url)) {
-                    return false
-                }
-                if (!openInExternalBrowser(request.url)) {
-                    showWebError(getString(R.string.web_navigation_blocked_message))
-                }
-                return true
-            }
-
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
@@ -236,39 +221,6 @@ class MainActivity : AppCompatActivity() {
     private fun hideWebError() {
         webErrorMessage.visibility = View.GONE
         webView.visibility = View.VISIBLE
-    }
-
-    private fun isAllowedDashP2PUrl(uri: Uri?): Boolean {
-        if (uri == null || !uri.isHierarchical) {
-            return false
-        }
-
-        if (!uri.scheme.equals(dashP2PEntryUri.scheme, ignoreCase = true)) {
-            return false
-        }
-        if (!uri.authority.equals(dashP2PEntryUri.authority, ignoreCase = true)) {
-            return false
-        }
-
-        val allowedPath = dashP2PEntryUri.path.orEmpty().trimEnd('/')
-        val candidatePath = uri.path.orEmpty().trimEnd('/')
-        return candidatePath == allowedPath || candidatePath.startsWith("$allowedPath/")
-    }
-
-    private fun openInExternalBrowser(uri: Uri): Boolean {
-        val scheme = uri.scheme.orEmpty()
-        if (!scheme.equals("http", ignoreCase = true) && !scheme.equals("https", ignoreCase = true)) {
-            return false
-        }
-
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            addCategory(Intent.CATEGORY_BROWSABLE)
-        }
-        if (intent.resolveActivity(packageManager) == null) {
-            return false
-        }
-        startActivity(intent)
-        return true
     }
 
     private fun isRuntimeActiveState(state: String): Boolean {

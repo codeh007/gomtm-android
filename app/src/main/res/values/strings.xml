@@ -5,7 +5,6 @@
     <string name="web_loading_message">Loading gomtm /dash/p2p…</string>
     <string name="web_error_message">Unable to open the gomtm Web UI.</string>
     <string name="web_error_reason_format">Unable to open the gomtm Web UI. %1$s</string>
-    <string name="web_navigation_blocked_message">Navigation blocked outside the trusted gomtm Web UI.</string>
     <string name="accessibility_service_label">gomtm-swarm remote control accessibility</string>
     <string name="runtime_notification_channel">gomtm 节点运行时</string>
     <string name="runtime_notification_title">gomtm 节点正在运行</string>

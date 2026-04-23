@@ -42,15 +42,12 @@ class MainActivityContractTest {
     }
 
     @Test
-    fun mainActivityRestrictsWebViewNavigationToDashP2PFamily() {
+    fun mainActivityDoesNotRestrictWebViewNavigationToDashP2PFamily() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/MainActivity.kt")
 
-        assertTrue("MainActivity should define an allowlist helper for bridged URLs", source.contains("private fun isAllowedDashP2PUrl("))
-        assertTrue("MainActivity should gate main-frame navigations", source.contains("override fun shouldOverrideUrlLoading("))
-        assertTrue("MainActivity should check whether a URL stays inside the allowlist", source.contains("isAllowedDashP2PUrl(request.url)"))
-        assertTrue("MainActivity should route unexpected navigations out of the bridged WebView", source.contains("openInExternalBrowser(request.url)"))
-        assertTrue("MainActivity should compare against the configured /dash/p2p entry URL", source.contains("BuildConfig.GOMTM_UI_DASH_P2P_URL"))
-        assertTrue("MainActivity should constrain path navigation to the /dash/p2p family", source.contains("candidatePath.startsWith(\"${'$'}allowedPath/\")"))
+        assertFalse("MainActivity should not keep a bridged URL allowlist helper", source.contains("private fun isAllowedDashP2PUrl("))
+        assertFalse("MainActivity should not intercept top-level navigations for path restriction", source.contains("override fun shouldOverrideUrlLoading("))
+        assertFalse("MainActivity should not re-route unexpected navigations to an external browser", source.contains("openInExternalBrowser("))
     }
 
     @Test
@@ -95,6 +92,7 @@ class MainActivityContractTest {
             "surface_version_format",
             "peer_suffix_placeholder",
             "peer_suffix_unavailable",
+            "web_navigation_blocked_message",
         )
 
         expectedNames.forEach { name ->
