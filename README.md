@@ -39,7 +39,7 @@ The active architecture is:
 
 ## Runtime contract
 
-The app consumes a published `gomtm-swarm-android.aar` and keeps the runtime surface behind a WebView host boundary:
+The app consumes a published `gomtm-swarm-android.aar` and exposes the runtime surface to the shared Web UI through the Android bridge:
 
 - `startNode(baseDir, config)`
 - `stopNode()`
@@ -51,6 +51,8 @@ The app consumes a published `gomtm-swarm-android.aar` and keeps the runtime sur
 - `drainLogs()`
 
 The product UI lives in the shared `/dash/p2p` Web page. The Android shell is responsible for loading that entry URL and exposing host primitives, not for keeping a parallel native dashboard.
+
+Inside the Android app, the embedded `WebView` should behave like a normal browser surface for the gomtmui app: normal web navigation, normal login redirects, and the same shared page tree. The only Android-specific difference is the additional JS bridge exposed by `GomtmWebViewBridge`.
 
 ## Release trigger
 
@@ -83,7 +85,7 @@ Current package boundaries:
 - `com.gomtm.swarm.web` only hosts the WebView bridge surface
 - the old catch-all `com.gomtm.swarm.swarm` package is no longer the canonical source layout
 
-`MainActivity` now loads the shared `BuildConfig.GOMTM_UI_DASH_P2P_URL` Web entry directly. If that page cannot load, the only native fallback is a minimal error text surface; the old native runtime dashboard is no longer a product UI.
+`MainActivity` now loads the shared `BuildConfig.GOMTM_UI_DASH_P2P_URL` Web entry directly. The embedded `WebView` does not enforce path allowlists or reroute normal gomtmui navigations out to an external browser. If that page cannot load, the only native fallback is a minimal error text surface; the old native runtime dashboard is no longer a product UI.
 
 ## Related docs
 

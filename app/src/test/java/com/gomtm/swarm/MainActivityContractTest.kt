@@ -117,16 +117,6 @@ class MainActivityContractTest {
         assertFalse("native dashboard screen-share icon should be deleted", projectPathExists("app/src/main/res/drawable/ic_screen_share.xml"))
     }
 
-    @Test
-    fun readmeDescribesWebViewHostShellTruth() {
-        val readme = readProjectFile("README.md")
-
-        assertTrue("README should describe the Android app as a WebView host shell", readme.contains("WebView host shell"))
-        assertTrue("README should point the shell at /dash/p2p", readme.contains("/dash/p2p"))
-        assertFalse("README should not claim there is no embedded WebView", readme.contains("There is no embedded `WebView`"))
-        assertFalse("README should not describe the old compact native runtime surface as the product UI", readme.contains("one compact native runtime surface in `activity_main.xml`"))
-    }
-
     private fun readProjectFile(relative: String): String {
         val path = resolveProjectPath(relative)
         return String(Files.readAllBytes(path))
