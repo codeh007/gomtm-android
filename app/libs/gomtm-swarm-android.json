@@ -1,8 +1,8 @@
 {
-  "aar_url": "https://github.com/codeh007/gomtm/releases/download/android-swarm-20260424-0933/gomtm-swarm-android.aar",
+  "aar_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/404338515",
   "artifact": "gomtm-swarm-android.aar",
   "commit": "a3eb5c109692bdae04e2b7178d62e1744989e7d9",
-  "metadata_url": "https://github.com/codeh007/gomtm/releases/download/android-swarm-20260424-0933/gomtm-swarm-android.json",
+  "metadata_url": "https://api.github.com/repos/codeh007/gomtm/releases/assets/404338516",
   "published_at": "2026-04-24T09:33:37Z",
   "sha256": "77f231b7716ec7364bda1c741cc9e66218969c42a85cdc74f792a67a9b65b89a",
   "source_ref": "main",
