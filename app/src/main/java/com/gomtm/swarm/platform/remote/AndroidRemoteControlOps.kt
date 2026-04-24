@@ -7,6 +7,8 @@ import com.gomtm.swarm.platform.accessibility.GomtmAccessibilityService
 class AndroidRemoteControlOps(
     private val context: Context,
 ) : RemoteControlOps {
+    fun applicationContext(): Context = context.applicationContext ?: context
+
     override fun screenSnapshot(format: String): RemoteControlCommandResult<RemoteControlScreenshotPayload> {
         if (!GomtmAccessibilityService.isEnabled(context)) {
             return RemoteControlCommandResult.Error(

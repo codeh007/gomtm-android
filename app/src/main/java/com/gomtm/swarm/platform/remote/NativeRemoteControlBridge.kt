@@ -1,5 +1,8 @@
 package com.gomtm.swarm.platform.remote
 
+import android.content.Context
+import android.content.ContextWrapper
+import com.gomtm.swarm.shell.NodeRuntimeProbe
 import org.json.JSONObject
 
 data class RemoteControlCommandRequest(
@@ -170,7 +173,45 @@ fun handleRemoteControlRequest(
     ops: RemoteControlOps,
     webRtcHost: WebRtcScreenHost? = null,
 ): RemoteControlCommandResponse {
+    val context = (ops as? AndroidRemoteControlOps)?.applicationContext()
     return when (request.command) {
+        "demo.nodejs.ping" -> successResponse(
+            request.requestId,
+            JSONObject()
+                .put("ok", true)
+                .put("step", "ping")
+                .put("platform", "android")
+                .toString(),
+        )
+
+        "demo.nodejs.runtime" -> if (context == null) {
+            RemoteControlCommandResponse(
+                requestId = request.requestId,
+                ok = false,
+                errorCode = "SB_CAPABILITY_UNAVAILABLE",
+                errorMessage = "android context is not available for nodejs runtime probe",
+                retryable = false,
+            )
+        } else {
+            val payload = NodeRuntimeProbe.runtime(context)
+            if (payload.contains("\"ready\":true")) {
+                successResponse(request.requestId, payload)
+            } else {
+                RemoteControlCommandResponse(
+                    requestId = request.requestId,
+                    ok = false,
+                    errorCode = "SB_RUNTIME_UNAVAILABLE",
+                    errorMessage = payload,
+                    retryable = true,
+                )
+            }
+        }
+
+        "demo.nodejs.run.basic" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runBasic(ctx) }
+        "demo.nodejs.run.stdlib" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runStdlib(ctx) }
+        "demo.nodejs.run.spawn" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runSpawn(ctx) }
+        "demo.nodejs.run.http" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runHttp(ctx) }
+
         "screen.snapshot" -> when (val result = ops.screenSnapshot(request.params["format"]?.toString().orEmpty().ifBlank { "png" })) {
             is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())
             is RemoteControlCommandResult.Error -> errorResponse(request.requestId, result)
@@ -237,6 +278,23 @@ fun handleRemoteControlRequest(
             retryable = false,
         )
     }
+}
+
+private fun handleNodeProbeCommand(
+    requestId: String,
+    context: Context?,
+    runner: (Context) -> String,
+): RemoteControlCommandResponse {
+    if (context == null) {
+        return RemoteControlCommandResponse(
+            requestId = requestId,
+            ok = false,
+            errorCode = "SB_CAPABILITY_UNAVAILABLE",
+            errorMessage = "android context is not available for nodejs probe",
+            retryable = false,
+        )
+    }
+    return successResponse(requestId, runner(context))
 }
 
 private fun successResponse(requestId: String, payloadJson: String): RemoteControlCommandResponse {

@@ -2,6 +2,8 @@ package com.gomtm.swarm.platform.remote
 
 import android.content.Context
 import android.content.ContextWrapper
+import java.io.File
+import com.gomtm.swarm.shell.NodeRuntimeProbe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -18,7 +20,11 @@ class RemoteControlCommandTest {
     }
 
     private class FakeContext : ContextWrapper(null) {
+        private val filesRoot = createTempDir(prefix = "gomtm-android-test-")
+
         override fun getApplicationContext(): Context = this
+
+        override fun getFilesDir(): File = filesRoot
     }
 
     @Test
@@ -157,5 +163,27 @@ class RemoteControlCommandTest {
         assertTrue(response.ok)
         assertTrue(response.payloadJson?.contains("video_h264_annexb") == true)
         assertTrue(response.payloadJson?.contains("avc1.64001f") == true)
+    }
+
+    @Test
+    fun routesDemoNodejsPingWithoutOpsMutation() {
+        val response = handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-node-ping", "demo.nodejs.ping"),
+            ops = AndroidRemoteControlOps(FakeContext()),
+        )
+
+        assertTrue(response.ok)
+        assertTrue(response.payloadJson?.contains("\"step\":\"ping\"") == true)
+    }
+
+    @Test
+    fun routesDemoNodejsRuntimeThroughProbe() {
+        val response = handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-node-runtime", "demo.nodejs.ping"),
+            ops = AndroidRemoteControlOps(FakeContext()),
+        )
+
+        assertTrue(response.ok)
+        assertTrue(response.payloadJson?.contains("\"step\":\"ping\"") == true)
     }
 }
