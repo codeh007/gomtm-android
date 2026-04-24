@@ -73,11 +73,20 @@ object NodeRuntimeProbe {
     private fun waitForProcess(process: Process, timeoutMs: Long): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
-            if (!process.isAlive) {
+            if (hasProcessExited(process)) {
                 return true
             }
             sleep(100)
         }
-        return !process.isAlive
+        return hasProcessExited(process)
+    }
+
+    private fun hasProcessExited(process: Process): Boolean {
+        return try {
+            process.exitValue()
+            true
+        } catch (_: IllegalThreadStateException) {
+            false
+        }
     }
 }
