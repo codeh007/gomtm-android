@@ -24,7 +24,7 @@ object NodeRuntimeProbe {
     fun runHttp(context: Context): String = runScript(context, "http", scriptHttp)
 
     private fun runScript(context: Context, step: String, script: String): String {
-        val install = NodeRuntimeInstaller.ensure(context)
+        val install = NodeRuntimeInstaller.inspect(context)
         val paths = NodeRuntimePathsResolver.resolve(context)
         if (!install.ok) {
             return JSONObject()
