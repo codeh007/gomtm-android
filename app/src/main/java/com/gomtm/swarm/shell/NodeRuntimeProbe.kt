@@ -51,7 +51,7 @@ object NodeRuntimeProbe {
         val finished = waitForProcess(process, timeoutMs)
         val durationMs = System.currentTimeMillis() - startAt
         if (!finished) {
-            process.destroyForcibly()
+            process.destroy()
             return JSONObject()
                 .put("step", step)
                 .put("success", false)
