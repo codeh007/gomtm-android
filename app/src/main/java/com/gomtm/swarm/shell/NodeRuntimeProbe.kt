@@ -2,7 +2,7 @@ package com.gomtm.swarm.shell
 
 import android.content.Context
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.lang.Thread.sleep
 import org.json.JSONObject
 
 object NodeRuntimeProbe {
@@ -48,7 +48,7 @@ object NodeRuntimeProbe {
             .start()
         val stdout = process.inputStream.bufferedReader().readText().trim()
         val stderr = process.errorStream.bufferedReader().readText().trim()
-        val finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
+        val finished = waitForProcess(process, timeoutMs)
         val durationMs = System.currentTimeMillis() - startAt
         if (!finished) {
             process.destroyForcibly()
@@ -68,5 +68,16 @@ object NodeRuntimeProbe {
             .put("stderr", stderr)
             .put("duration_ms", durationMs)
             .toString()
+    }
+
+    private fun waitForProcess(process: Process, timeoutMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (!process.isAlive) {
+                return true
+            }
+            sleep(100)
+        }
+        return !process.isAlive
     }
 }
