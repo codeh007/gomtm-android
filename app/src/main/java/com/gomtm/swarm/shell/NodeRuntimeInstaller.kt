@@ -125,6 +125,27 @@ object NodeRuntimeInstaller {
         )
     }
 
+    fun inspect(context: Context): NodeRuntimeInstallResult {
+        val paths = NodeRuntimePathsResolver.resolve(context)
+        val checks = mutableListOf<String>()
+        if (paths.userspaceRoot.exists()) checks += "userspace_root_present"
+        if (paths.compatShim.exists()) checks += "compat_shim_present"
+        if (paths.glibcLinker.exists()) checks += "glibc_linker_present"
+        if (paths.nodeReal.exists()) checks += "node_real_present"
+        if (paths.nodeWrapper.exists()) checks += "node_wrapper_present"
+        val ready = paths.glibcLinker.exists() && paths.nodeReal.exists() && paths.nodeWrapper.exists()
+        val message = if (ready) {
+            "node runtime ready"
+        } else {
+            buildList {
+                if (!paths.glibcLinker.exists()) add("glibc linker missing")
+                if (!paths.nodeReal.exists()) add("node.real missing")
+                if (!paths.nodeWrapper.exists()) add("node wrapper missing")
+            }.joinToString(", ")
+        }
+        return NodeRuntimeInstallResult(ok = ready, message = message, checks = checks)
+    }
+
     private fun downloadTo(source: String, dest: File) {
         dest.parentFile?.mkdirs()
         val connection = URL(source).openConnection() as HttpURLConnection
@@ -198,7 +219,7 @@ object NodeRuntimeInstaller {
 
     fun runtimeSummaryJson(context: Context): String {
         val paths = NodeRuntimePathsResolver.resolve(context)
-        val install = ensure(context)
+        val install = inspect(context)
         return JSONObject()
             .put("step", "runtime")
             .put("ready", install.ok)
