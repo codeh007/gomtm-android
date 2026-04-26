@@ -1,7 +1,6 @@
 package com.gomtm.swarm.runtime
 
 import android.content.Context
-import android.util.Log
 import com.gomtm.swarm.platform.accessibility.GomtmAccessibilityService
 import com.gomtm.swarm.platform.remote.AndroidRemoteControlOps
 import com.gomtm.swarm.platform.remote.AndroidScreenStreamHost
@@ -16,99 +15,12 @@ import com.gomtm.swarm.platform.remote.WebRtcScreenHost
 import com.gomtm.swarm.platform.remote.encodeRemoteControlResponse
 import com.gomtm.swarm.platform.remote.handleRemoteControlRequest
 import com.gomtm.swarm.platform.remote.parseRemoteControlRequest
-import java.io.File
-import java.lang.reflect.InvocationTargetException
 
 class GomtmRuntimeFacade(
     private val bridgeClassName: String = DEFAULT_BRIDGE_CLASS_NAME,
-    private val configClassName: String = DEFAULT_CONFIG_CLASS_NAME,
     private val classLoader: ClassLoader = GomtmRuntimeFacade::class.java.classLoader
         ?: ClassLoader.getSystemClassLoader(),
 ) {
-    fun start(context: Context, config: RuntimeLaunchConfig) {
-        val bridge = resolveBridgeClass()
-        Log.i(LOG_TAG, "bridge class=${bridge.name} methods=${bridge.methods.joinToString { method -> method.name + method.parameterTypes.joinToString(prefix = "(", postfix = ")") { it.simpleName } }}")
-        val configClass = Class.forName(configClassName, true, classLoader)
-        val configInstance = configClass.getDeclaredConstructor().newInstance()
-        setStringProperty(
-            configClass,
-            configInstance,
-            listOf(
-                "SetConnectionAddr",
-                "setConnectionAddr",
-                "SetConnectionAddress",
-                "setConnectionAddress",
-            ),
-            config.connectionAddress,
-        )
-        setBooleanProperty(configClass, configInstance, listOf("SetAutoReconnect", "setAutoReconnect"), config.autoReconnect)
-        val baseDir = runtimeBaseDir(context)
-        invokeStartBridge(bridge, configClass, configInstance, baseDir, config)
-    }
-
-    internal fun invokeStartBridge(
-        bridge: Class<*>,
-        configClass: Class<*>,
-        configInstance: Any,
-        baseDir: String,
-        config: RuntimeLaunchConfig,
-    ) {
-        if (hasMethod(bridge, listOf("StartNode", "startNode"), arrayOf(String::class.java, configClass))) {
-            invokeStaticByNames(
-                bridge = bridge,
-                methodNames = listOf("StartNode", "startNode"),
-                args = arrayOf(baseDir, configInstance),
-                parameterTypes = arrayOf(String::class.java, configClass),
-            )
-            return
-        }
-
-        for (booleanType in booleanParameterTypes()) {
-            if (hasMethod(
-                    bridge,
-                    listOf("StartNodeWithOptions", "startNodeWithOptions"),
-					arrayOf(String::class.java, String::class.java, booleanType),
-                )
-            ) {
-                invokeStaticByNames(
-                    bridge = bridge,
-                    methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
-					args = arrayOf(baseDir, config.connectionAddress, config.autoReconnect),
-					parameterTypes = arrayOf(String::class.java, String::class.java, booleanType),
-                )
-                return
-            }
-        }
-
-		if (hasMethod(
-				bridge,
-				listOf("StartNodeWithOptions", "startNodeWithOptions"),
-				arrayOf(String::class.java, String::class.java),
-			)
-		) {
-			invokeStaticByNames(
-				bridge = bridge,
-				methodNames = listOf("StartNodeWithOptions", "startNodeWithOptions"),
-				args = arrayOf(baseDir, config.connectionAddress),
-				parameterTypes = arrayOf(String::class.java, String::class.java),
-			)
-			return
-		}
-
-        throw IllegalStateException("bridge method not found: StartNode/StartNodeWithOptions")
-    }
-
-    fun stop() {
-        invokeStaticByNames(
-            bridge = resolveBridgeClass(),
-            methodNames = listOf("StopNode", "stopNode"),
-            args = emptyArray(),
-            parameterTypes = emptyArray(),
-        )
-    }
-
-    fun drainLogs(): String = invokeStringByNames("DrainLogs", "drainLogs")
-
     fun pollRemoteControlRequest(timeoutMs: Int): String {
         val bridge = try {
             resolveBridgeClass()
@@ -243,78 +155,7 @@ class GomtmRuntimeFacade(
         resolveRemoteControlResponse(encodeRemoteControlResponse(response))
     }
 
-    fun probe(): RuntimeSnapshot {
-        val bridge = try {
-            resolveBridgeClass()
-        } catch (error: ReflectiveOperationException) {
-            return RuntimeSnapshot.missing("gomtm swarm bridge unavailable: ${error.message ?: error.javaClass.simpleName}")
-        }
-
-        val rawDiscoveredPeers = invokeStringByNames(bridge, "GetDiscoveredPeers", "getDiscoveredPeers")
-        val discoveredPeers = DiscoveredPeer.parseSnapshot(rawDiscoveredPeers)
-        val state = invokeStringByNames(bridge, "GetState", "getState").ifBlank { "Unknown" }
-        val peerId = invokeStringByNames(bridge, "GetPeerID", "GetPeerId", "getPeerID", "getPeerId")
-        val connectionAddress = invokeStringByNames(
-            bridge,
-            "GetConnectionAddr",
-            "GetConnectionAddress",
-            "getConnectionAddr",
-            "getConnectionAddress",
-        )
-        val lastError = invokeStringByNames(bridge, "GetLastError", "getLastError")
-        val autoRestartBridge = runCatching { Class.forName("com.gomtm.swarm.platform.lifecycle.GomtmForegroundService", true, classLoader) }.getOrNull()
-        val lastAutoRestartAtMs = autoRestartBridge?.let { bridgeClass ->
-            runCatching {
-                (bridgeClass.getMethod("getLastDegradedRestartAtMs").invoke(null) as? Number)?.toLong() ?: 0L
-            }.getOrDefault(0L)
-        } ?: 0L
-        val lastAutoRestartReason = autoRestartBridge?.let { bridgeClass ->
-            runCatching {
-                bridgeClass.getMethod("getLastDegradedRestartReason").invoke(null) as? String ?: ""
-            }.getOrDefault("")
-        } ?: ""
-        return RuntimeSnapshot(
-            bridgeClassName = bridge.name,
-            state = state,
-            peerId = peerId,
-            connectionAddress = connectionAddress,
-            lastError = lastError,
-            lastAutoRestartAtMs = lastAutoRestartAtMs,
-            lastAutoRestartReason = lastAutoRestartReason,
-            discoveredPeers = discoveredPeers,
-            rawDiscoveredPeers = rawDiscoveredPeers,
-        )
-    }
-
     internal fun resolveBridgeClass(): Class<*> = Class.forName(bridgeClassName, true, classLoader)
-
-    private fun runtimeBaseDir(context: Context): String {
-        val baseDir = File(context.filesDir, "gomtm")
-        baseDir.mkdirs()
-        return baseDir.absolutePath
-    }
-
-    private fun invokeStringByNames(vararg methodNames: String): String {
-        return try {
-            invokeStringByNames(resolveBridgeClass(), *methodNames)
-        } catch (_: ReflectiveOperationException) {
-            ""
-        }
-    }
-
-    private fun invokeStringByNames(bridge: Class<*>, vararg methodNames: String): String {
-        for (name in methodNames) {
-            try {
-                val method = bridge.getMethod(name)
-                return (method.invoke(null) as? String).orEmpty()
-            } catch (_: NoSuchMethodException) {
-                continue
-            } catch (_: ReflectiveOperationException) {
-                return ""
-            }
-        }
-        return ""
-    }
 
     private fun invokeOptionalByNames(
         bridge: Class<*>,
@@ -335,80 +176,6 @@ class GomtmRuntimeFacade(
         return null
     }
 
-    private fun hasMethod(
-        bridge: Class<*>,
-        methodNames: List<String>,
-        parameterTypes: Array<out Class<*>>,
-    ): Boolean {
-        for (name in methodNames) {
-            try {
-                bridge.getMethod(name, *parameterTypes)
-                return true
-            } catch (_: NoSuchMethodException) {
-                continue
-            }
-        }
-        return false
-    }
-
-    private fun invokeStaticByNames(
-        bridge: Class<*>,
-        methodNames: List<String>,
-        args: Array<out Any?>,
-        parameterTypes: Array<out Class<*>>,
-    ): Any? {
-        var lastMissing: NoSuchMethodException? = null
-        for (name in methodNames) {
-            try {
-                val method = bridge.getMethod(name, *parameterTypes)
-                return method.invoke(null, *args)
-            } catch (error: NoSuchMethodException) {
-                lastMissing = error
-                continue
-            } catch (error: InvocationTargetException) {
-                val cause = error.targetException ?: error.cause ?: error
-                throw IllegalStateException(cause.message ?: cause.javaClass.simpleName, cause)
-            }
-        }
-        throw IllegalStateException("bridge method not found: ${methodNames.joinToString()}", lastMissing)
-    }
-
-    private fun setStringProperty(targetClass: Class<*>, target: Any, methodNames: List<String>, value: String) {
-        var lastMissing: NoSuchMethodException? = null
-        for (name in methodNames) {
-            try {
-                targetClass.getMethod(name, String::class.java).invoke(target, value)
-                return
-            } catch (error: NoSuchMethodException) {
-                lastMissing = error
-                continue
-            }
-        }
-        throw IllegalStateException("config setter not found: ${methodNames.joinToString()}", lastMissing)
-    }
-
-    private fun setBooleanProperty(targetClass: Class<*>, target: Any, methodNames: List<String>, value: Boolean) {
-        var lastMissing: NoSuchMethodException? = null
-        for (booleanType in booleanParameterTypes()) {
-            for (name in methodNames) {
-                try {
-                    targetClass.getMethod(name, booleanType).invoke(target, value)
-                    return
-                } catch (error: NoSuchMethodException) {
-                    lastMissing = error
-                    continue
-                }
-            }
-        }
-        throw IllegalStateException("config setter not found: ${methodNames.joinToString()}", lastMissing)
-    }
-
-    private fun booleanParameterTypes(): List<Class<*>> {
-        val primitive = java.lang.Boolean.TYPE
-        val boxed = java.lang.Boolean::class.java
-        return if (primitive == boxed) listOf(primitive) else listOf(primitive, boxed)
-    }
-
     private fun timeoutParameterTypes(): List<Class<*>> {
         return listOf(
             java.lang.Long.TYPE,
@@ -427,8 +194,6 @@ class GomtmRuntimeFacade(
 
     companion object {
         internal const val DEFAULT_BRIDGE_CLASS_NAME = "io.nekohasekai.p2pandroid.P2pandroid"
-        internal const val DEFAULT_CONFIG_CLASS_NAME = "io.nekohasekai.p2pandroid.Config"
-        private const val LOG_TAG = "GomtmSwarmRuntime"
     }
 }
 

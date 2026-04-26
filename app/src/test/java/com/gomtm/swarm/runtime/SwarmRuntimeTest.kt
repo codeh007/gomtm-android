@@ -25,7 +25,6 @@ class SwarmRuntimeTest {
     fun readsRemoteControlRequestFromBridge() {
         val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
-            configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
@@ -38,7 +37,6 @@ class SwarmRuntimeTest {
     fun forwardsRemoteControlResponseAndPermissionStateToBridge() {
         val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
-            configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
@@ -65,7 +63,6 @@ class SwarmRuntimeTest {
 
         val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
-            configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
@@ -89,7 +86,6 @@ class SwarmRuntimeTest {
 
         val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
-            configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
@@ -152,7 +148,6 @@ class SwarmRuntimeTest {
 
         val runtime = GomtmRuntimeFacade(
             bridgeClassName = FakeNodeBridge::class.java.name,
-            configClassName = FakeConfig::class.java.name,
             classLoader = FakeNodeBridge::class.java.classLoader ?: ClassLoader.getSystemClassLoader(),
         )
 
