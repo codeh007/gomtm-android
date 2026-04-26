@@ -200,11 +200,6 @@ class SwarmRuntimeTest {
         assertTrue(FakeNodeBridge.lastRemoteControlResponse.contains("connecting"))
     }
 
-    class FakeConfig {
-        fun setConnectionAddr(@Suppress("UNUSED_PARAMETER") value: String) = Unit
-        fun setAutoReconnect(@Suppress("UNUSED_PARAMETER") value: Boolean) = Unit
-    }
-
     class FakeNodeBridge {
         companion object {
             @JvmField
@@ -236,36 +231,6 @@ class SwarmRuntimeTest {
 
             @JvmField
             var queuedRemoteControlRequest: String = "{\"request_id\":\"req-1\",\"command\":\"screen.snapshot\",\"params\":{\"format\":\"png\"}}"
-
-            @JvmStatic
-            fun startNode(@Suppress("UNUSED_PARAMETER") baseDir: String, @Suppress("UNUSED_PARAMETER") config: FakeConfig) = Unit
-
-            @JvmStatic
-            fun stopNode() = Unit
-
-            @JvmStatic
-            fun getState(): String = "Registered"
-
-            @JvmStatic
-            fun getPeerID(): String = "peer-123"
-
-            @JvmStatic
-            fun getConnectionAddr(): String = "/ip4/127.0.0.1/tcp/4101/p2p/test"
-
-            @JvmStatic
-            fun getLastError(): String = ""
-
-            @JvmStatic
-            fun getDiscoveredPeers(): String = discoveredPeersJson
-
-            @JvmField
-            var discoveredPeersJson: String =
-                """
-                {"schema_version":"v1","generated_at":"2026-03-27T10:00:00Z","peers":[{"peer_id":"peer-b","name":"android-b","state":"registered","discovered_in_current_session":true,"last_seen_at":"2026-03-27T10:00:00Z"}]}
-                """.trimIndent()
-
-            @JvmStatic
-            fun drainLogs(): String = "connection ok"
 
             @JvmStatic
             fun pollRemoteControlRequest(@Suppress("UNUSED_PARAMETER") timeoutMs: Long): String =
