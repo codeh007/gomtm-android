@@ -14,6 +14,7 @@ import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.gomtm.swarm.platform.lifecycle.GomtmHostActions
 import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
 import com.gomtm.swarm.web.GomtmWebViewBridge
 
@@ -63,9 +64,17 @@ class MainActivity : AppCompatActivity() {
         screenCapturePermissionLauncher.launch(manager.createScreenCaptureIntent())
     }
 
+    private fun startDeviceService() {
+        GomtmHostActions.startDeviceService(this)
+    }
+
     private fun handleHostAction(intent: Intent?) {
         if (intent?.action == ACTION_REQUEST_SCREEN_CAPTURE) {
             webView.post { requestScreenCapturePermission() }
+            return
+        }
+        if (intent?.action == ACTION_START_DEVICE_SERVICE) {
+            webView.post { startDeviceService() }
         }
     }
 
@@ -81,6 +90,7 @@ class MainActivity : AppCompatActivity() {
             GomtmWebViewBridge(
                 activity = this,
                 onScreenCaptureRequested = ::requestScreenCapturePermission,
+                onDeviceServiceStartRequested = ::startDeviceService,
             ),
             BRIDGE_NAME,
         )
@@ -142,5 +152,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val BRIDGE_NAME = "GomtmHostBridge"
         const val ACTION_REQUEST_SCREEN_CAPTURE = "com.gomtm.swarm.action.REQUEST_SCREEN_CAPTURE"
+        const val ACTION_START_DEVICE_SERVICE = "com.gomtm.swarm.action.START_DEVICE_SERVICE"
     }
 }

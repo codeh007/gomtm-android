@@ -8,6 +8,7 @@ import org.json.JSONObject
 class GomtmWebViewBridge(
     private val activity: Activity,
     private val onScreenCaptureRequested: () -> Unit,
+    private val onDeviceServiceStartRequested: () -> Unit,
 ) {
     @JavascriptInterface
     fun getHostInfo(): String {
@@ -24,9 +25,16 @@ class GomtmWebViewBridge(
         return JSONObject()
             .put("available", true)
             .put("activationStatus", "inactive")
-            .put("runtimeStatus", "unknown")
+            .put("runtimeStatus", "service_ready_required")
             .put("canRequestScreenCapture", true)
+            .put("canStartDeviceService", true)
             .toString()
+    }
+
+    @JavascriptInterface
+    fun startDeviceService(): String {
+        activity.runOnUiThread { onDeviceServiceStartRequested() }
+        return JSONObject().put("accepted", true).toString()
     }
 
     @JavascriptInterface
