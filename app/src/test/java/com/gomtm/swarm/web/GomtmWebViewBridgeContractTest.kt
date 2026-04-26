@@ -9,56 +9,42 @@ import org.junit.Test
 
 class GomtmWebViewBridgeContractTest {
     @Test
-    fun bridgeExposesHostPrimitivesOnly() {
+    fun bridgeExposesOnlyMinimalHostPrimitives() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
 
         assertTrue(source.contains("@JavascriptInterface"))
         assertTrue(Regex("""@JavascriptInterface\s+fun getHostInfo\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun getConnectionConfig\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun getRuntimeSnapshot\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun listDiscoveredPeers\(\)""").containsMatchIn(source))
-        assertFalse(Regex("""@JavascriptInterface\s+fun getPeerCapabilities\(peerId: String\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun saveConnectionConfig\(payloadJson: String\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun requestScreenCapture\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun requestRuntimeRestart\(\)""").containsMatchIn(source))
-        assertFalse(source.contains("@JavascriptInterface fun startBrowserRuntime("))
-        assertFalse(source.contains("@JavascriptInterface fun openAndroidPage("))
+        assertFalse(Regex("""@JavascriptInterface\s+fun getConnectionConfig\(\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun getRuntimeSnapshot\(\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun listDiscoveredPeers\(\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun saveConnectionConfig\(payloadJson: String\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun requestRuntimeRestart\(\)""").containsMatchIn(source))
     }
 
     @Test
-    fun saveConnectionConfigRestartsRuntimeWithSavedAddress() {
+    fun bridgeDoesNotExposeLegacyRuntimePresencePayloads() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
 
-        assertTrue(
-            "bridge should hand the newly parsed address into the restart callback",
-            source.contains("onRuntimeRestartRequested(parsed.connectionAddress)"),
-        )
-        assertFalse(
-            "bridge should not restart runtime without passing the saved address",
-            source.contains("onRuntimeRestartRequested()"),
-        )
+        assertFalse(source.contains("currentNode"))
+        assertFalse(source.contains("activeConnectionAddr"))
+        assertFalse(source.contains("serverUrl"))
+        assertFalse(source.contains("multiaddrs"))
+        assertFalse(source.contains("lastDiscoveredAt"))
+        assertFalse(source.contains("peer_candidates_ready"))
+        assertFalse(source.contains("discovering"))
+        assertFalse(source.contains("RuntimeSnapshot"))
+        assertFalse(source.contains("DiscoveredPeer"))
     }
 
     @Test
-    fun bridgePublishesHostRuntimePayloadShapeOnly() {
+    fun bridgeReportsHostMetadataOnly() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
 
-        assertTrue(source.contains("put(\"status\""))
-        assertTrue(source.contains("put(\"currentNode\""))
-        assertTrue(source.contains("put(\"activeConnectionAddr\""))
-        assertTrue(source.contains("put(\"serverUrl\""))
-        assertTrue(source.contains("put(\"multiaddrs\""))
-        assertTrue(source.contains("put(\"lastDiscoveredAt\""))
-        assertFalse(source.contains("put(\"node\""))
-        assertFalse(source.contains("android.native_remote_v2_webrtc"))
-        assertFalse(source.contains("target_peer_capability_truth_unavailable"))
-    }
-
-    @Test
-    fun bridgeDoesNotKeepDeadTrimTextHelper() {
-        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
-
-        assertFalse(source.contains("private fun trimText("))
+        assertTrue(source.contains("hostKind"))
+        assertTrue(source.contains("packageName"))
+        assertTrue(source.contains("appVersion"))
+        assertTrue(source.contains("dashP2pUrl"))
     }
 
     private fun readProjectFile(relative: String): String {

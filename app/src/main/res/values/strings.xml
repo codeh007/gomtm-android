@@ -6,9 +6,9 @@
     <string name="web_error_message">Unable to open the gomtm Web UI.</string>
     <string name="web_error_reason_format">Unable to open the gomtm Web UI. %1$s</string>
     <string name="accessibility_service_label">gomtm-swarm remote control accessibility</string>
-    <string name="runtime_notification_channel">gomtm 节点运行时</string>
-    <string name="runtime_notification_title">gomtm 节点正在运行</string>
-    <string name="runtime_notification_text">保持前台服务以便冷启动后持续在线并自动重连。</string>
+    <string name="runtime_notification_channel">gomtm 设备服务</string>
+    <string name="runtime_notification_title">gomtm 设备服务正在运行</string>
+    <string name="runtime_notification_text">该前台服务仅在登录并完成设备绑定后由显式激活链路启动。</string>
     <string name="screen_capture_notification_channel">gomtm 画面捕获</string>
     <string name="screen_capture_notification_title">gomtm 正在共享设备画面</string>
     <string name="screen_capture_notification_text">保持前台服务以便浏览器连续查看 Android 画面。</string>

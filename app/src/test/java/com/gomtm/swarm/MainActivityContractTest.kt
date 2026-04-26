@@ -28,6 +28,9 @@ class MainActivityContractTest {
         assertTrue("MainActivity should host GomtmWebViewBridge", source.contains("GomtmWebViewBridge"))
         assertTrue("MainActivity should load the /dash/p2p entry URL from BuildConfig", source.contains("BuildConfig.GOMTM_UI_DASH_P2P_URL"))
         assertTrue("MainActivity should host a WebView", source.contains("WebView"))
+        assertFalse("MainActivity should not auto start runtime on create", source.contains("requestRuntimeStartIfNeeded("))
+        assertFalse("MainActivity should not keep runtime restart helper", source.contains("requestRuntimeRestart("))
+        assertFalse("MainActivity should not import the foreground service directly", source.contains("GomtmForegroundService"))
         assertFalse("MainActivity should remove the old advanced menu flow", source.contains("showAdvancedMenu("))
         assertFalse("MainActivity should remove the old native connection dialog flow", source.contains("showConnectionDialog("))
     }
@@ -56,14 +59,6 @@ class MainActivityContractTest {
 
         assertTrue("build script should declare a dash p2p build config field", buildScript.contains("GOMTM_UI_DASH_P2P_URL"))
         assertTrue("build script should point the host shell at /dash/p2p", buildScript.contains("/dash/p2p"))
-    }
-
-    @Test
-    fun connectionParserDoesNotKeepIntentCompatibilityEntry() {
-        val source = readProjectFile("app/src/main/java/com/gomtm/swarm/shell/ConnectionInputParser.kt")
-
-        assertFalse("connection parser should not keep parseIntent compat entry", source.contains("fun parseIntent("))
-        assertFalse("connection parser should not read intent extras", source.contains("getStringExtra("))
     }
 
     @Test

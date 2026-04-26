@@ -19,7 +19,7 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
-    fun mainActivityHostsWebViewAndKeepsHostLevelRuntimeActions() {
+    fun mainActivityHostsWebViewShellWithoutAutoStartingRuntime() {
         val source = String(
             Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
         )
@@ -28,48 +28,25 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("private lateinit var webErrorMessage: TextView"))
         assertTrue(source.contains("configureWebView()"))
         assertTrue(source.contains("requestScreenCapturePermission()"))
-        assertTrue(source.contains("requestRuntimeRestart(connectionAddress: String? = null)"))
+        assertFalse(source.contains("requestRuntimeStartIfNeeded("))
+        assertFalse(source.contains("requestRuntimeRestart("))
+        assertFalse(source.contains("GomtmForegroundService.start("))
         assertFalse(source.contains("PopupMenu"))
         assertFalse(source.contains("showConnectionDialog"))
     }
 
     @Test
-    fun mainActivityRestartsFromSavedConnectionConfigNotStaleActivityState() {
-        val source = String(
-            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
-        )
-
-        assertTrue(source.contains("val restartAddress = connectionAddress"))
-        assertTrue(source.contains("runtimeStore.load().connectionAddress"))
-        assertTrue(source.contains("latestConnectionAddress = restartAddress"))
-    }
-
-    @Test
-    fun mainActivityTreatsExternalDeepLinkAsConfirmationOnly() {
+    fun mainActivityTreatsExternalDeepLinkAsPageNavigationOnly() {
         val source = String(
             Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
         )
 
         assertFalse(source.contains("ConnectionInputParser.parseIntent(intent)"))
+        assertFalse(source.contains("ConnectionInputParser.parse(deepLink)"))
+        assertFalse(source.contains("NodeRuntimeConfig("))
+        assertFalse(source.contains("runtimeStore.save("))
         assertFalse(source.contains("getStringExtra("))
         assertFalse(source.contains("INTERNAL_CONNECTION_EXTRA"))
-        assertTrue(source.contains("intent?.action == Intent.ACTION_VIEW"))
-        assertTrue(source.contains("ConnectionInputParser.parse(deepLink)"))
-        assertTrue(source.contains("runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))"))
-    }
-
-    @Test
-    fun mainActivityDoesNotRestartRuntimeWhileAlreadyStarting() {
-        val source = String(
-            Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/MainActivity.kt")),
-        )
-
-        assertTrue(source.contains("private fun isRuntimeStartingState(state: String): Boolean"))
-        assertTrue(
-            Regex(
-                """if \(isRuntimeStartingState\(snapshot\.state\)\) \{\s*return\s*}""",
-            ).containsMatchIn(source),
-        )
     }
 
     @Test
@@ -88,7 +65,7 @@ class ForegroundRuntimeContractTest {
         val manifest = String(Files.readAllBytes(resolveProjectPath("app/src/main/AndroidManifest.xml")))
 
         assertTrue(
-            "manifest should declare RECEIVE_BOOT_COMPLETED for unattended restart",
+            "manifest should declare RECEIVE_BOOT_COMPLETED for future explicit activation policies",
             manifest.contains("android.permission.RECEIVE_BOOT_COMPLETED"),
         )
         assertTrue(
@@ -110,7 +87,7 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
-    fun foregroundRuntimeServiceKeepsConnectionStateAndTickLoopOutsideActivity() {
+    fun foregroundRuntimeServiceStillExistsButIsNoLongerMainActivityDriven() {
         val source = String(
             Files.readAllBytes(
                 resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmForegroundService.kt"),
@@ -122,25 +99,22 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("processRemoteControlTick"))
         assertTrue(source.contains("connectionAddress"))
         assertTrue(source.contains("connection is blank"))
-        assertTrue(source.contains("state.equals(\"Degraded\", ignoreCase = true)"))
-        assertTrue(source.contains("DEGRADED_RESTART_COOLDOWN_MS"))
-        assertTrue(source.contains("lastDegradedRestartAtMs"))
-        assertTrue(source.contains("lastDegradedRestartReason"))
-        assertTrue(source.contains("getLastDegradedRestartAtMs"))
-        assertTrue(source.contains("getLastDegradedRestartReason"))
-        assertFalse(source.contains("bootstrap session observation missing"))
         assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 
     @Test
-    fun bootReceiverOnlyRestoresRuntimeWhenConnectionAddressWasPersisted() {
+    fun bootReceiverNoLongerAutoRestoresRuntimeFromPersistedConnection() {
         val source = String(
             Files.readAllBytes(
                 resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmBootReceiver.kt"),
             ),
         )
 
-        assertTrue(source.contains("config.connectionAddress.isBlank()"))
+        assertTrue(source.contains("Intent.ACTION_BOOT_COMPLETED"))
+        assertTrue(source.contains("Intent.ACTION_MY_PACKAGE_REPLACED"))
+        assertFalse(source.contains("NodeRuntimeStore("))
+        assertFalse(source.contains("GomtmForegroundService.start("))
+        assertFalse(source.contains("connectionAddress"))
         assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 

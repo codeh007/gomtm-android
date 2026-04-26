@@ -12,26 +12,16 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.gomtm.swarm.platform.lifecycle.GomtmForegroundService
 import com.gomtm.swarm.platform.lifecycle.ScreenCaptureService
-import com.gomtm.swarm.runtime.GomtmRuntimeFacade
-import com.gomtm.swarm.shell.ConnectionInputParser
-import com.gomtm.swarm.shell.NodeRuntimeConfig
-import com.gomtm.swarm.shell.NodeRuntimeStore
 import com.gomtm.swarm.web.GomtmWebViewBridge
 
 class MainActivity : AppCompatActivity() {
-    private val swarmRuntime = GomtmRuntimeFacade()
-    private val runtimeStore by lazy { NodeRuntimeStore(this) }
-
     private lateinit var webView: WebView
     private lateinit var webErrorMessage: TextView
 
     private var hasPageLoadError = false
-    private var latestConnectionAddress = ""
 
     private val screenCapturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -50,8 +40,6 @@ class MainActivity : AppCompatActivity() {
         webErrorMessage = findViewById(R.id.webErrorMessage)
 
         configureWebView()
-        val forceRestart = applyIntentOverrides(intent)
-        requestRuntimeStartIfNeeded(forceRestart = forceRestart)
         handleHostAction(intent)
         loadDashP2PEntry()
     }
@@ -60,8 +48,6 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        val forceRestart = applyIntentOverrides(intent)
-        requestRuntimeStartIfNeeded(forceRestart = forceRestart)
         handleHostAction(intent)
         loadDashP2PEntry()
     }
@@ -70,73 +56,6 @@ class MainActivity : AppCompatActivity() {
         webView.removeJavascriptInterface(BRIDGE_NAME)
         webView.destroy()
         super.onDestroy()
-    }
-
-    private fun applyIntentOverrides(intent: Intent?): Boolean {
-        val persisted = runtimeStore.load()
-        if (latestConnectionAddress.isBlank() && persisted.connectionAddress.isNotBlank()) {
-            latestConnectionAddress = persisted.connectionAddress
-        }
-
-        if (intent?.action == Intent.ACTION_VIEW) {
-            val deepLink = intent.dataString.orEmpty()
-            if (deepLink.isBlank()) {
-                return false
-            }
-
-            val parsed = ConnectionInputParser.parse(deepLink)
-            if (parsed.connectionAddress != null) {
-                latestConnectionAddress = parsed.connectionAddress
-                runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
-                return true
-            }
-
-            Toast.makeText(
-                this,
-                parsed.errorMessage ?: getString(R.string.connection_invalid_message),
-                Toast.LENGTH_SHORT,
-            ).show()
-        }
-
-        return false
-    }
-
-    private fun requestRuntimeStartIfNeeded(forceRestart: Boolean = false) {
-        val connectionAddress = latestConnectionAddress.ifBlank { runtimeStore.load().connectionAddress }
-        if (connectionAddress.isBlank()) {
-            return
-        }
-        latestConnectionAddress = connectionAddress
-
-        val snapshot = swarmRuntime.probe()
-        val connectionChanged = connectionAddress != snapshot.connectionAddress
-        if (isRuntimeStartingState(snapshot.state)) {
-            return
-        }
-        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !connectionChanged) {
-            return
-        }
-
-        requestRuntimeRestart(connectionAddress = connectionAddress)
-    }
-
-    private fun requestRuntimeRestart(connectionAddress: String? = null) {
-        val restartAddress = connectionAddress
-            ?.trim()
-            .orEmpty()
-            .ifBlank { latestConnectionAddress.ifBlank { runtimeStore.load().connectionAddress } }
-        if (restartAddress.isBlank()) {
-            Toast.makeText(this, R.string.connection_required_message, Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        latestConnectionAddress = restartAddress
-        runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
-        GomtmForegroundService.start(
-            context = this,
-            connectionAddress = latestConnectionAddress,
-            forceRestart = true,
-        )
     }
 
     private fun requestScreenCapturePermission() {
@@ -161,10 +80,7 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(
             GomtmWebViewBridge(
                 activity = this,
-                runtime = swarmRuntime,
-                store = runtimeStore,
                 onScreenCaptureRequested = ::requestScreenCapturePermission,
-                onRuntimeRestartRequested = ::requestRuntimeRestart,
             ),
             BRIDGE_NAME,
         )
@@ -221,17 +137,6 @@ class MainActivity : AppCompatActivity() {
     private fun hideWebError() {
         webErrorMessage.visibility = View.GONE
         webView.visibility = View.VISIBLE
-    }
-
-    private fun isRuntimeActiveState(state: String): Boolean {
-        return state.equals("Ready", ignoreCase = true) ||
-            state.equals("Connected", ignoreCase = true) ||
-            state.equals("Registered", ignoreCase = true)
-    }
-
-    private fun isRuntimeStartingState(state: String): Boolean {
-        return state.equals("Starting", ignoreCase = true) ||
-            state.equals("Connecting", ignoreCase = true)
     }
 
     companion object {
