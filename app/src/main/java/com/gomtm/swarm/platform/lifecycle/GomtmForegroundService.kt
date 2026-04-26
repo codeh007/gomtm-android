@@ -8,153 +8,42 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.gomtm.swarm.MainActivity
 import com.gomtm.swarm.R
-import com.gomtm.swarm.runtime.GomtmRuntimeFacade
-import com.gomtm.swarm.runtime.RuntimeLaunchConfig
-import com.gomtm.swarm.shell.NodeRuntimeConfig
-import com.gomtm.swarm.shell.NodeRuntimeStore
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 
 class GomtmForegroundService : Service() {
-    private val swarmRuntime = GomtmRuntimeFacade()
-    private val runtimeStore by lazy { NodeRuntimeStore(this) }
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val backgroundWorker = Executors.newSingleThreadExecutor()
-    private val tickRunning = AtomicBoolean(false)
-    private var latestConnectionAddress = ""
-    private var lastDegradedRestartAtMs = 0L
-    private var lastDegradedRestartReason = ""
-
-    private val tickRunnable = object : Runnable {
-        override fun run() {
-            val snapshot = swarmRuntime.probe()
-            val drainedLogs = swarmRuntime.drainLogs().trim()
-            if (drainedLogs.isNotBlank()) {
-                drainedLogs.lineSequence()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .forEach { Log.i(LOG_TAG, "runtime_log: $it") }
-            }
-            if (shouldRestartDegradedRuntime(snapshot)) {
-                Log.w(LOG_TAG, "runtime degraded; restarting foreground runtime connection=$latestConnectionAddress")
-                lastDegradedRestartAtMs = System.currentTimeMillis()
-                lastDegradedRestartReason = snapshot.lastError
-                lastKnownDegradedRestartAtMs = lastDegradedRestartAtMs
-                lastKnownDegradedRestartReason = lastDegradedRestartReason
-                startRuntime(forceRestart = true)
-            }
-            if (isRuntimeActiveState(snapshot.state) && tickRunning.compareAndSet(false, true)) {
-                backgroundWorker.execute {
-                    try {
-                        swarmRuntime.processRemoteControlTick(this@GomtmForegroundService, timeoutMs = 0)
-                    } catch (error: Throwable) {
-                        Log.w(LOG_TAG, "processRemoteControlTick failed", error)
-                    } finally {
-                        tickRunning.set(false)
-                    }
-                }
-            }
-            mainHandler.postDelayed(this, TICK_INTERVAL_MS)
-        }
-    }
-
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIFICATION_ID, buildNotification())
+        HostActivationStore.markDeviceServiceActivationRequested(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action ?: ACTION_START) {
-            ACTION_STOP -> {
-                runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
-                stopRuntime()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return START_NOT_STICKY
-            }
-
-            else -> {
-                val persisted = runtimeStore.load()
-                latestConnectionAddress = intent?.getStringExtra(EXTRA_CONNECTION)?.trim().takeUnless { it.isNullOrEmpty() }
-                    ?: persisted.connectionAddress
-                val forceRestart = intent?.getBooleanExtra(EXTRA_FORCE_RESTART, false) ?: false
-                runtimeStore.save(NodeRuntimeConfig(connectionAddress = latestConnectionAddress))
-                startRuntime(forceRestart)
-                scheduleTicks()
-            }
+        HostActivationStore.markDeviceServiceActivationRequested(this)
+        if ((intent?.action ?: ACTION_START) == ACTION_STOP) {
+            HostActivationStore.clearDeviceServiceActivationRequested(this)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
-        mainHandler.removeCallbacks(tickRunnable)
-        backgroundWorker.shutdownNow()
+        HostActivationStore.clearDeviceServiceActivationRequested(this)
         super.onDestroy()
     }
 
-    private fun startRuntime(forceRestart: Boolean) {
-        if (latestConnectionAddress.isBlank()) {
-            Log.w(LOG_TAG, "startRuntime skipped: connection is blank")
-            return
-        }
-        val snapshot = swarmRuntime.probe()
-        val connectionChanged = latestConnectionAddress.isNotBlank() && latestConnectionAddress != snapshot.connectionAddress
-        if ((forceRestart || connectionChanged) && (isRuntimeActiveState(snapshot.state) || isRuntimeStartingState(snapshot.state))) {
-            runCatching { swarmRuntime.stop() }
-        }
-        if (!forceRestart && isRuntimeActiveState(snapshot.state) && !connectionChanged) {
-            return
-        }
-        Log.i(LOG_TAG, "startRuntime connection=$latestConnectionAddress forceRestart=$forceRestart")
-        swarmRuntime.start(
-            this,
-            RuntimeLaunchConfig(
-                connectionAddress = latestConnectionAddress,
-                autoReconnect = true,
-            ),
-        )
-    }
-
-    private fun stopRuntime() {
-        mainHandler.removeCallbacks(tickRunnable)
-        runCatching { swarmRuntime.stop() }
-            .onFailure { Log.w(LOG_TAG, "stopRuntime failed", it) }
-    }
-
-    private fun scheduleTicks() {
-        mainHandler.removeCallbacks(tickRunnable)
-        mainHandler.post(tickRunnable)
-    }
-
-    private fun shouldRestartDegradedRuntime(snapshot: com.gomtm.swarm.runtime.RuntimeSnapshot): Boolean {
-        if (!snapshot.state.equals("Degraded", ignoreCase = true)) {
-            return false
-        }
-        if (latestConnectionAddress.isBlank()) {
-            return false
-        }
-        val now = System.currentTimeMillis()
-        return now - lastDegradedRestartAtMs >= DEGRADED_RESTART_COOLDOWN_MS
-    }
-
     private fun buildNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(EXTRA_CONNECTION, latestConnectionAddress)
-        }
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
-            intent,
+            Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         ensureNotificationChannel()
@@ -180,41 +69,11 @@ class GomtmForegroundService : Service() {
         }
     }
 
-    private fun isRuntimeActiveState(state: String): Boolean {
-        return state.equals("Ready", ignoreCase = true) ||
-            state.equals("Connected", ignoreCase = true) ||
-            state.equals("Registered", ignoreCase = true) ||
-            state.equals("Degraded", ignoreCase = true)
-    }
-
-    private fun isRuntimeStartingState(state: String): Boolean {
-        return state.equals("Starting", ignoreCase = true) ||
-            state.equals("Connecting", ignoreCase = true)
-    }
-
     companion object {
-        const val EXTRA_CONNECTION = "connection"
-        const val EXTRA_FORCE_RESTART = "force_restart"
-
         private const val ACTION_START = "com.gomtm.swarm.action.START_RUNTIME"
         private const val ACTION_STOP = "com.gomtm.swarm.action.STOP_RUNTIME"
         private const val NOTIFICATION_CHANNEL_ID = "gomtm_runtime"
         private const val NOTIFICATION_ID = 41001
-        private const val TICK_INTERVAL_MS = 750L
-        private const val DEGRADED_RESTART_COOLDOWN_MS = 15_000L
-        private const val LOG_TAG = "GomtmForegroundSvc"
-
-        @JvmStatic
-        fun getLastDegradedRestartAtMs(): Long = lastKnownDegradedRestartAtMs
-
-        @JvmStatic
-        fun getLastDegradedRestartReason(): String = lastKnownDegradedRestartReason
-
-        @Volatile
-        private var lastKnownDegradedRestartAtMs: Long = 0L
-
-        @Volatile
-        private var lastKnownDegradedRestartReason: String = ""
 
         fun start(
             context: Context,
@@ -232,5 +91,8 @@ class GomtmForegroundService : Service() {
         fun stop(context: Context) {
             context.startService(Intent(context, GomtmForegroundService::class.java).apply { action = ACTION_STOP })
         }
+
+        const val EXTRA_CONNECTION = "connection"
+        const val EXTRA_FORCE_RESTART = "force_restart"
     }
 }

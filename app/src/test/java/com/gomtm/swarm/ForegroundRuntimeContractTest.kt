@@ -87,7 +87,7 @@ class ForegroundRuntimeContractTest {
     }
 
     @Test
-    fun foregroundRuntimeServiceStillExistsButIsNoLongerMainActivityDriven() {
+    fun foregroundRuntimeServiceNowActsAsHostShellInsteadOfSwarmRuntimeManager() {
         val source = String(
             Files.readAllBytes(
                 resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmForegroundService.kt"),
@@ -95,10 +95,14 @@ class ForegroundRuntimeContractTest {
         )
 
         assertTrue(source.contains("START_STICKY"))
-        assertTrue(source.contains("GomtmRuntimeFacade"))
-        assertTrue(source.contains("processRemoteControlTick"))
-        assertTrue(source.contains("connectionAddress"))
-        assertTrue(source.contains("connection is blank"))
+        assertTrue(source.contains("HostActivationStore.markDeviceServiceActivationRequested"))
+        assertTrue(source.contains("HostActivationStore.clearDeviceServiceActivationRequested"))
+        assertTrue(source.contains("NotificationCompat.Builder"))
+        assertFalse(source.contains("GomtmRuntimeFacade"))
+        assertFalse(source.contains("processRemoteControlTick"))
+        assertFalse(source.contains("connection is blank"))
+        assertFalse(source.contains("NodeRuntimeStore("))
+        assertFalse(source.contains("RuntimeLaunchConfig("))
         assertFalse(source.contains("DEFAULT_BOOTSTRAP"))
     }
 

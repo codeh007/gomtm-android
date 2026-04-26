@@ -3,6 +3,7 @@ package com.gomtm.swarm.web
 import android.app.Activity
 import android.webkit.JavascriptInterface
 import com.gomtm.swarm.BuildConfig
+import com.gomtm.swarm.platform.lifecycle.HostActivationStore
 import org.json.JSONObject
 
 class GomtmWebViewBridge(
@@ -22,12 +23,14 @@ class GomtmWebViewBridge(
 
     @JavascriptInterface
     fun getActivationSurface(): String {
+        val serviceActivationRequested = HostActivationStore.isDeviceServiceActivationRequested(activity)
         return JSONObject()
             .put("available", true)
-            .put("activationStatus", "inactive")
-            .put("runtimeStatus", "service_ready_required")
+            .put("activationStatus", if (serviceActivationRequested) "activating" else "inactive")
+            .put("hostActionState", if (serviceActivationRequested) "device_service_activation_requested" else "idle")
+            .put("serviceActivationRequested", serviceActivationRequested)
             .put("canRequestScreenCapture", true)
-            .put("canStartDeviceService", true)
+            .put("canStartDeviceService", !serviceActivationRequested)
             .toString()
     }
 
