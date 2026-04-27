@@ -12,6 +12,7 @@ permissions:
   contents: read
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GH_FALLBACK_TOKEN: ${{ github.token }}
   GOMTM_RELEASE_TOKEN: ${{ secrets.GOMTM_GH_PAT }}
 
