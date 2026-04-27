@@ -5,10 +5,6 @@ on:
     branches:
       - main
 
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
-
 permissions:
   contents: write
 
@@ -30,51 +26,76 @@ jobs:
       - name: Prepare pinned gomtm swarm AAR
         uses: ./.github/actions/setup-pinned-gomtm-swarm-aar
 
-      - name: Resolve release tag
+      - name: Create or reuse release tag for current commit
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --force --tags origin
           release_tag="$(python - <<'PY'
           import os
           import re
           import subprocess
+          import sys
+          import time
 
-          exact = re.compile(r'^v(\d+)\.(\d+)\.(\d+)$')
           sha = os.environ['GITHUB_SHA'].strip()
+          series_prefix = 'v0.4.'
+          exact = re.compile(r'^v0\.4\.(\d+)$')
 
-          def exact_tags(*args: str) -> list[str]:
-              output = subprocess.check_output(['git', 'tag', *args], text=True)
+          def git_output(*args: str) -> str:
+              return subprocess.check_output(['git', *args], text=True).strip()
+
+          def series_tags(*args: str) -> list[str]:
+              output = git_output('tag', *args)
+              if not output:
+                  return []
               return [tag.strip() for tag in output.splitlines() if exact.fullmatch(tag.strip())]
 
-          existing = exact_tags('--points-at', sha)
+          def version_key(tag: str) -> int:
+              match = exact.fullmatch(tag)
+              if not match:
+                  raise ValueError(f'invalid release tag: {tag}')
+              return int(match.group(1))
+
+          def remote_tag_sha(tag: str) -> str:
+              return git_output('ls-remote', '--tags', 'origin', f'refs/tags/{tag}')
+
+          subprocess.check_call(['git', 'fetch', '--force', '--tags', 'origin'])
+
+          existing = series_tags('--points-at', sha)
           if existing:
-              existing.sort(key=lambda tag: tuple(int(part) for part in tag.removeprefix('v').split('.')))
-              print(existing[-1])
+              print(sorted(existing, key=version_key)[-1])
               raise SystemExit(0)
 
-          known = exact_tags('--list', 'v*')
+          known = series_tags('--list', f'{series_prefix}*')
           if not known:
-              raise SystemExit('No exact semver release tag found; expected at least one existing vX.Y.Z tag.')
+              raise SystemExit('No exact v0.4.x release tag found; expected at least one existing tag in that series.')
 
-          known.sort(key=lambda tag: tuple(int(part) for part in tag.removeprefix('v').split('.')))
-          major, minor, patch = (int(part) for part in known[-1].removeprefix('v').split('.'))
-          print(f'v{major}.{minor}.{patch + 1}')
+          for _ in range(20):
+              known = series_tags('--list', f'{series_prefix}*')
+              next_patch = version_key(sorted(known, key=version_key)[-1]) + 1
+              candidate = f'{series_prefix}{next_patch}'
+              subprocess.check_call(['git', 'tag', '-f', candidate, sha])
+              push = subprocess.run(['git', 'push', 'origin', f'refs/tags/{candidate}'], text=True, capture_output=True)
+              if push.returncode == 0:
+                  print(candidate)
+                  raise SystemExit(0)
+              subprocess.run(['git', 'tag', '-d', candidate], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              subprocess.check_call(['git', 'fetch', '--force', '--tags', 'origin'])
+              existing = series_tags('--points-at', sha)
+              if existing:
+                  print(sorted(existing, key=version_key)[-1])
+                  raise SystemExit(0)
+              if remote_tag_sha(candidate):
+                  time.sleep(1)
+                  continue
+              sys.stderr.write(push.stderr)
+              raise SystemExit(push.returncode)
+
+          raise SystemExit('failed to allocate release tag after repeated retries')
           PY
           )"
           echo "RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
           echo "GOMTM_RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
-
-      - name: Create git tag when missing on current commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
-            echo "Tag ${RELEASE_TAG} already exists; reusing it for this commit."
-            exit 0
-          fi
-          git tag "${RELEASE_TAG}" "${GITHUB_SHA}"
-          git push origin "refs/tags/${RELEASE_TAG}"
 
       - name: Write provenance
         shell: bash
