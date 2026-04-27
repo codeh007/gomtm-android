@@ -68,6 +68,10 @@ class MainActivity : AppCompatActivity() {
         GomtmHostActions.startDeviceService(this)
     }
 
+    private fun stopDeviceService() {
+        GomtmHostActions.stopDeviceService(this)
+    }
+
     private fun handleHostAction(intent: Intent?) {
         if (intent?.action == ACTION_REQUEST_SCREEN_CAPTURE) {
             webView.post { requestScreenCapturePermission() }
@@ -91,6 +95,7 @@ class MainActivity : AppCompatActivity() {
                 activity = this,
                 onScreenCaptureRequested = ::requestScreenCapturePermission,
                 onDeviceServiceStartRequested = ::startDeviceService,
+                onDeviceServiceStopRequested = ::stopDeviceService,
             ),
             BRIDGE_NAME,
         )

@@ -10,4 +10,8 @@ object GomtmHostActions {
             forceRestart = false,
         )
     }
+
+    fun stopDeviceService(context: Context) {
+        GomtmForegroundService.stop(context)
+    }
 }

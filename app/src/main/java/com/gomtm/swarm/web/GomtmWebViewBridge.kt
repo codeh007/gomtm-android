@@ -10,6 +10,7 @@ class GomtmWebViewBridge(
     private val activity: Activity,
     private val onScreenCaptureRequested: () -> Unit,
     private val onDeviceServiceStartRequested: () -> Unit,
+    private val onDeviceServiceStopRequested: () -> Unit,
 ) {
     @JavascriptInterface
     fun getHostInfo(): String {
@@ -31,12 +32,19 @@ class GomtmWebViewBridge(
             .put("serviceActivationRequested", serviceActivationRequested)
             .put("canRequestScreenCapture", true)
             .put("canStartDeviceService", !serviceActivationRequested)
+            .put("canStopDeviceService", serviceActivationRequested)
             .toString()
     }
 
     @JavascriptInterface
     fun startDeviceService(): String {
         activity.runOnUiThread { onDeviceServiceStartRequested() }
+        return JSONObject().put("accepted", true).toString()
+    }
+
+    @JavascriptInterface
+    fun stopDeviceService(): String {
+        activity.runOnUiThread { onDeviceServiceStopRequested() }
         return JSONObject().put("accepted", true).toString()
     }
 
