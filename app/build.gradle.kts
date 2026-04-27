@@ -24,7 +24,7 @@ val appVersionName = normalizeVersionName(
         ?: providers.environmentVariable("GOMTM_RELEASE_TAG").orNull,
 )
 val appVersionCode = versionCodeFrom(appVersionName)
-val gomtmDashP2PUrl = "https://gomtmui-dev.yuepa8.com/dash/p2p"
+val gomtmDevicesUrl = "https://gomtmui-dev.yuepa8.com/dash/devices"
 val localPinnedRuntimeAar = project.file("libs/gomtm-swarm-android.aar")
 val worktreePinnedRuntimeAar = rootDir.resolve("../../app/libs/gomtm-swarm-android.aar")
 val pinnedRuntimeAar = when {
@@ -48,7 +48,7 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = appVersionCode
         versionName = appVersionName
-        buildConfigField("String", "GOMTM_UI_DASH_P2P_URL", "\"$gomtmDashP2PUrl\"")
+        buildConfigField("String", "GOMTM_UI_DEVICES_URL", "\"$gomtmDevicesUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
 
         configureWebView()
         handleHostAction(intent)
-        loadDashP2PEntry()
+        loadDevicesEntry()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         setIntent(intent)
 
         handleHostAction(intent)
-        loadDashP2PEntry()
+        loadDevicesEntry()
     }
 
     override fun onDestroy() {
@@ -131,11 +131,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadDashP2PEntry() {
+    private fun loadDevicesEntry() {
         hasPageLoadError = false
         webErrorMessage.text = getString(R.string.web_loading_message)
         hideWebError()
-        webView.loadUrl(BuildConfig.GOMTM_UI_DASH_P2P_URL)
+        webView.loadUrl(BuildConfig.GOMTM_UI_DEVICES_URL)
     }
 
     private fun showWebError(reason: String?) {

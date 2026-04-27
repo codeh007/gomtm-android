@@ -46,7 +46,6 @@ class GomtmWebViewBridgeContractTest {
         assertTrue(source.contains("hostKind"))
         assertTrue(source.contains("packageName"))
         assertTrue(source.contains("appVersion"))
-        assertTrue(source.contains("dashP2pUrl"))
         assertTrue(source.contains("canStartDeviceService"))
         assertTrue(source.contains("canStopDeviceService"))
     }

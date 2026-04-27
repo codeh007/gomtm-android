@@ -77,13 +77,9 @@ class GomtmForegroundService : Service() {
 
         fun start(
             context: Context,
-            connectionAddress: String,
-            forceRestart: Boolean,
         ) {
             val intent = Intent(context, GomtmForegroundService::class.java).apply {
                 action = ACTION_START
-                putExtra(EXTRA_CONNECTION, connectionAddress)
-                putExtra(EXTRA_FORCE_RESTART, forceRestart)
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -91,8 +87,5 @@ class GomtmForegroundService : Service() {
         fun stop(context: Context) {
             context.startService(Intent(context, GomtmForegroundService::class.java).apply { action = ACTION_STOP })
         }
-
-        const val EXTRA_CONNECTION = "connection"
-        const val EXTRA_FORCE_RESTART = "force_restart"
     }
 }

@@ -4,11 +4,7 @@ import android.content.Context
 
 object GomtmHostActions {
     fun startDeviceService(context: Context) {
-        GomtmForegroundService.start(
-            context = context,
-            connectionAddress = "",
-            forceRestart = false,
-        )
+        GomtmForegroundService.start(context = context)
     }
 
     fun stopDeviceService(context: Context) {

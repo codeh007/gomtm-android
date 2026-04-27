@@ -18,7 +18,6 @@ class GomtmWebViewBridge(
             .put("hostKind", "android-host")
             .put("packageName", activity.packageName)
             .put("appVersion", BuildConfig.VERSION_NAME)
-            .put("dashP2pUrl", BuildConfig.GOMTM_UI_DASH_P2P_URL)
             .toString()
     }
 

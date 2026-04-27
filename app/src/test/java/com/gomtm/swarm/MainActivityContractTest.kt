@@ -21,12 +21,12 @@ class MainActivityContractTest {
     }
 
     @Test
-    fun mainActivityRegistersJavascriptBridgeAndLoadsDashP2PEntry() {
+    fun mainActivityRegistersJavascriptBridgeAndLoadsDevicesEntry() {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/MainActivity.kt")
 
         assertTrue("MainActivity should register a JS bridge", source.contains("addJavascriptInterface("))
         assertTrue("MainActivity should host GomtmWebViewBridge", source.contains("GomtmWebViewBridge"))
-        assertTrue("MainActivity should load the /dash/p2p entry URL from BuildConfig", source.contains("BuildConfig.GOMTM_UI_DASH_P2P_URL"))
+        assertTrue("MainActivity should load the /dash/devices entry URL from BuildConfig", source.contains("BuildConfig.GOMTM_UI_DEVICES_URL"))
         assertTrue("MainActivity should host a WebView", source.contains("WebView"))
         assertFalse("MainActivity should not auto start runtime on create", source.contains("requestRuntimeStartIfNeeded("))
         assertFalse("MainActivity should not keep runtime restart helper", source.contains("requestRuntimeRestart("))
@@ -54,11 +54,11 @@ class MainActivityContractTest {
     }
 
     @Test
-    fun buildScriptDefinesDashP2PEntryUrl() {
+    fun buildScriptDefinesDevicesEntryUrl() {
         val buildScript = readProjectFile("app/build.gradle.kts")
 
-        assertTrue("build script should declare a dash p2p build config field", buildScript.contains("GOMTM_UI_DASH_P2P_URL"))
-        assertTrue("build script should point the host shell at /dash/p2p", buildScript.contains("/dash/p2p"))
+        assertTrue("build script should declare a devices build config field", buildScript.contains("GOMTM_UI_DEVICES_URL"))
+        assertTrue("build script should point the host shell at /dash/devices", buildScript.contains("/dash/devices"))
     }
 
     @Test

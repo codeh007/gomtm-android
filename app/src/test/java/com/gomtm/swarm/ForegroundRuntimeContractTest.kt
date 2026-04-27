@@ -146,7 +146,7 @@ class ForegroundRuntimeContractTest {
 
         assertTrue(buildScript.contains("gomtmReleaseTag"))
         assertTrue(buildScript.contains("versionCodeFrom(appVersionName)"))
-        assertTrue(buildScript.contains("GOMTM_UI_DASH_P2P_URL"))
+        assertTrue(buildScript.contains("GOMTM_UI_DEVICES_URL"))
         assertTrue(releaseWorkflow.contains("GOMTM_RELEASE_TAG="))
         assertTrue(releaseWorkflow.contains("-PgomtmReleaseTag=\"${'$'}{RELEASE_TAG}\""))
     }
