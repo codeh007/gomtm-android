@@ -14,6 +14,8 @@ class GomtmWebViewBridgeContractTest {
 
         assertTrue(source.contains("@JavascriptInterface"))
         assertTrue(Regex("""@JavascriptInterface\s+fun getHostInfo\(\)""").containsMatchIn(source))
+        assertTrue(Regex("""@JavascriptInterface\s+fun startDeviceService\(\)""").containsMatchIn(source))
+        assertTrue(Regex("""@JavascriptInterface\s+fun stopDeviceService\(\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun requestScreenCapture\(\)""").containsMatchIn(source))
         assertFalse(Regex("""@JavascriptInterface\s+fun getConnectionConfig\(\)""").containsMatchIn(source))
         assertFalse(Regex("""@JavascriptInterface\s+fun getRuntimeSnapshot\(\)""").containsMatchIn(source))
@@ -45,6 +47,8 @@ class GomtmWebViewBridgeContractTest {
         assertTrue(source.contains("packageName"))
         assertTrue(source.contains("appVersion"))
         assertTrue(source.contains("dashP2pUrl"))
+        assertTrue(source.contains("canStartDeviceService"))
+        assertTrue(source.contains("canStopDeviceService"))
     }
 
     private fun readProjectFile(relative: String): String {
