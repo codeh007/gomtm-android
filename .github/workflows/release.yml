@@ -41,6 +41,7 @@ jobs:
           sha = os.environ['GITHUB_SHA'].strip()
           series_prefix = 'v0.4.'
           exact = re.compile(r'^v0\.4\.(\d+)$')
+          act_mode = os.environ.get('ACT') == 'true'
 
           def git_output(*args: str) -> str:
               return subprocess.check_output(['git', *args], text=True).strip()
@@ -70,6 +71,10 @@ jobs:
           known = series_tags('--list', f'{series_prefix}*')
           if not known:
               raise SystemExit('No exact v0.4.x release tag found; expected at least one existing tag in that series.')
+
+          if act_mode:
+              print(sorted(known, key=version_key)[-1])
+              raise SystemExit(0)
 
           for _ in range(20):
               known = series_tags('--list', f'{series_prefix}*')
@@ -127,18 +132,7 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          accept-android-sdk-licenses: false
-
-      - name: Accept Android SDK licenses
-        shell: bash
-        run: |
-          set +o pipefail
-          yes | sdkmanager --licenses >/dev/null
-
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: bash ./.github/scripts/setup-android-sdk.sh
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
@@ -171,6 +165,7 @@ jobs:
           PY
 
       - name: Create GitHub Release
+        if: ${{ env.ACT != 'true' }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -190,3 +185,10 @@ jobs:
             dist/gomtm-swarm-arm64-v8a-debug.apk
             dist/gomtm-swarm-provenance.json
           fail_on_unmatched_files: true
+
+      - name: Summarize local act release dry-run
+        if: ${{ env.ACT == 'true' }}
+        run: |
+          echo "ACT local mode: skipped remote GitHub Release creation"
+          echo "Release tag: ${RELEASE_TAG}"
+          ls -lh dist/gomtm-swarm-arm64-v8a-debug.apk dist/gomtm-swarm-provenance.json

@@ -35,18 +35,7 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          accept-android-sdk-licenses: false
-
-      - name: Accept Android SDK licenses
-        shell: bash
-        run: |
-          set +o pipefail
-          yes | sdkmanager --licenses >/dev/null
-
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: bash ./.github/scripts/setup-android-sdk.sh
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
@@ -74,6 +63,7 @@ jobs:
           PY
 
       - name: Upload debug APK
+        if: ${{ env.ACT != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: gomtm-swarm-debug-apk

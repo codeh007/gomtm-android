@@ -14,3 +14,4 @@ app/libs/*.aar
 .tmp_scripts
 graphify-out/cache
 .gitnexus
+dist
