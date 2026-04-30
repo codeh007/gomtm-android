@@ -2,6 +2,7 @@ package com.gomtm.swarm.platform.remote
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.ApplicationInfo
 import java.io.File
 import com.gomtm.swarm.shell.NodeRuntimeProbe
 import org.junit.Assert.assertEquals
@@ -21,10 +22,17 @@ class RemoteControlCommandTest {
 
     private class FakeContext : ContextWrapper(null) {
         private val filesRoot = createTempDir(prefix = "gomtm-android-test-")
+        private val appInfo = ApplicationInfo().apply {
+            nativeLibraryDir = File(filesRoot, "native-lib").absolutePath
+        }
 
         override fun getApplicationContext(): Context = this
 
         override fun getFilesDir(): File = filesRoot
+
+        override fun getPackageCodePath(): String = File(filesRoot, "packages/base.apk").absolutePath
+
+        override fun getApplicationInfo(): ApplicationInfo = appInfo
     }
 
     @Test
@@ -223,13 +231,32 @@ class RemoteControlCommandTest {
 
     @Test
     fun pythonRuntimeInstallReturnsStructuredPayload() {
+        val context = FakeContext()
         val response = handleRemoteControlRequest(
             request = RemoteControlCommandRequest("req-py-install", "runtime.python.install"),
-            ops = AndroidRemoteControlOps(FakeContext()),
+            ops = AndroidRemoteControlOps(context),
         )
 
         assertTrue(response.ok)
         assertTrue(response.payloadJson?.contains("installed") == true)
         assertTrue(response.payloadJson?.contains("message") == true)
+
+        val wrapper = File(context.filesDir, "runtime/python/releases/3.14.4-aarch64/bin/python-real").readText()
+        assertTrue(wrapper.contains(context.packageCodePath))
+        assertTrue(wrapper.contains(context.applicationInfo.nativeLibraryDir))
+    }
+
+    @Test
+    fun pythonRuntimeInstallDoesNotUseHardCodedLegacyApkPaths() {
+        val context = FakeContext()
+
+        handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-py-install-paths", "runtime.python.install"),
+            ops = AndroidRemoteControlOps(context),
+        )
+
+        val wrapper = File(context.filesDir, "runtime/python/releases/3.14.4-aarch64/bin/python-real").readText()
+        assertFalse(wrapper.contains("/data/app/com.gomtm.swarm/base.apk"))
+        assertFalse(wrapper.contains("/data/app/com.gomtm.swarm/lib/arm64"))
     }
 }

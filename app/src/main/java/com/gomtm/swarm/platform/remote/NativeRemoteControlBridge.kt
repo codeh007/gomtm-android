@@ -246,8 +246,8 @@ fun handleRemoteControlRequest(
             )
         } else {
             val status = PythonRuntimeInstaller(context).ensureInstalled(
-                sourceApkPath = "/data/app/com.gomtm.swarm/base.apk",
-                nativeLibraryDir = "/data/app/com.gomtm.swarm/lib/arm64",
+                sourceApkPath = context.packageCodePath,
+                nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
             )
             successResponse(
                 request.requestId,
