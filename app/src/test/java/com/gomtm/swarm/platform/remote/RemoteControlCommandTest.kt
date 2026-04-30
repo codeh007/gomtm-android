@@ -186,4 +186,50 @@ class RemoteControlCommandTest {
         assertTrue(response.ok)
         assertTrue(response.payloadJson?.contains("\"step\":\"ping\"") == true)
     }
+
+    @Test
+    fun rejectsUnknownPythonRuntimeProbeCommandNames() {
+        val response = handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-py-1", "runtime.python.probe", mapOf("probe" to "embedded-smoke")),
+            ops = AndroidRemoteControlOps(FakeContext()),
+        )
+
+        assertFalse(response.ok)
+    }
+
+    @Test
+    fun pythonRuntimeStatusReturnsStructuredPayload() {
+        val response = handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-py-status", "runtime.python.status"),
+            ops = AndroidRemoteControlOps(FakeContext()),
+        )
+
+        assertTrue(response.ok)
+        assertTrue(response.payloadJson?.contains("installed") == true)
+        assertTrue(response.payloadJson?.contains("message") == true)
+    }
+
+    @Test
+    fun pythonRuntimeVersionProbeReturnsStructuredFailureBeforeInstall() {
+        val response = handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-py-version", "runtime.python.probe", mapOf("probe" to "version")),
+            ops = AndroidRemoteControlOps(FakeContext()),
+        )
+
+        assertTrue(response.ok)
+        assertTrue(response.payloadJson?.contains("\"probe\":\"version\"") == true)
+        assertTrue(response.payloadJson?.contains("python runtime not installed") == true)
+    }
+
+    @Test
+    fun pythonRuntimeInstallReturnsStructuredPayload() {
+        val response = handleRemoteControlRequest(
+            request = RemoteControlCommandRequest("req-py-install", "runtime.python.install"),
+            ops = AndroidRemoteControlOps(FakeContext()),
+        )
+
+        assertTrue(response.ok)
+        assertTrue(response.payloadJson?.contains("installed") == true)
+        assertTrue(response.payloadJson?.contains("message") == true)
+    }
 }

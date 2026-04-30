@@ -2,6 +2,9 @@ package com.gomtm.swarm.platform.remote
 
 import android.content.Context
 import android.content.ContextWrapper
+import com.gomtm.swarm.platform.python.PythonRuntimeCommand
+import com.gomtm.swarm.platform.python.PythonRuntimeInstaller
+import com.gomtm.swarm.platform.python.PythonRuntimeWorkerProbe
 import com.gomtm.swarm.shell.NodeRuntimeProbe
 import org.json.JSONObject
 
@@ -211,6 +214,88 @@ fun handleRemoteControlRequest(
         "demo.nodejs.run.stdlib" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runStdlib(ctx) }
         "demo.nodejs.run.spawn" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runSpawn(ctx) }
         "demo.nodejs.run.http" -> handleNodeProbeCommand(request.requestId, context) { ctx -> NodeRuntimeProbe.runHttp(ctx) }
+
+        "runtime.python.status" -> if (context == null) {
+            RemoteControlCommandResponse(
+                requestId = request.requestId,
+                ok = false,
+                errorCode = "SB_CAPABILITY_UNAVAILABLE",
+                errorMessage = "android context is not available for python runtime status",
+                retryable = false,
+            )
+        } else {
+            val status = PythonRuntimeInstaller(context).inspect()
+            successResponse(
+                request.requestId,
+                JSONObject()
+                    .put("installed", status.installed)
+                    .put("active_release", status.activeRelease)
+                    .put("python_path", status.pythonPath)
+                    .put("message", status.message)
+                    .toString(),
+            )
+        }
+
+        "runtime.python.install" -> if (context == null) {
+            RemoteControlCommandResponse(
+                requestId = request.requestId,
+                ok = false,
+                errorCode = "SB_CAPABILITY_UNAVAILABLE",
+                errorMessage = "android context is not available for python runtime install",
+                retryable = false,
+            )
+        } else {
+            val status = PythonRuntimeInstaller(context).ensureInstalled(
+                sourceApkPath = "/data/app/com.gomtm.swarm/base.apk",
+                nativeLibraryDir = "/data/app/com.gomtm.swarm/lib/arm64",
+            )
+            successResponse(
+                request.requestId,
+                JSONObject()
+                    .put("installed", status.installed)
+                    .put("active_release", status.activeRelease)
+                    .put("python_path", status.pythonPath)
+                    .put("message", status.message)
+                    .toString(),
+            )
+        }
+
+        "runtime.python.probe" -> if (context == null) {
+            RemoteControlCommandResponse(
+                requestId = request.requestId,
+                ok = false,
+                errorCode = "SB_CAPABILITY_UNAVAILABLE",
+                errorMessage = "android context is not available for python runtime probe",
+                retryable = false,
+            )
+        } else {
+            when (request.params["probe"]?.toString().orEmpty()) {
+                PythonRuntimeCommand.PROBE_VERSION,
+                PythonRuntimeCommand.PROBE_STDLIB_SMOKE,
+                PythonRuntimeCommand.PROBE_BASE_PACKAGE_SMOKE,
+                PythonRuntimeCommand.PROBE_WORKER_SMOKE -> {
+                    val result = PythonRuntimeCommand.runProbe(context, request.params["probe"]?.toString().orEmpty())
+                    successResponse(
+                        request.requestId,
+                        JSONObject()
+                            .put("probe", result.probe)
+                            .put("success", result.success)
+                            .put("exit_code", result.exitCode)
+                            .put("stdout", result.stdout)
+                            .put("stderr", result.stderr)
+                            .toString(),
+                    )
+                }
+
+                else -> RemoteControlCommandResponse(
+                    requestId = request.requestId,
+                    ok = false,
+                    errorCode = "SB_CAPABILITY_UNAVAILABLE",
+                    errorMessage = "unsupported python runtime probe: ${request.params["probe"]}",
+                    retryable = false,
+                )
+            }
+        }
 
         "screen.snapshot" -> when (val result = ops.screenSnapshot(request.params["format"]?.toString().orEmpty().ifBlank { "png" })) {
             is RemoteControlCommandResult.Success -> successResponse(request.requestId, result.payload.toJson())

@@ -13,8 +13,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.gomtm.swarm.MainActivity
 import com.gomtm.swarm.R
+import io.nekohasekai.p2pandroid.P2pandroid
 
 class GomtmForegroundService : Service() {
+    private var runtimeStarted = false
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -27,15 +30,30 @@ class GomtmForegroundService : Service() {
         HostActivationStore.markDeviceServiceActivationRequested(this)
         if ((intent?.action ?: ACTION_START) == ACTION_STOP) {
             HostActivationStore.clearDeviceServiceActivationRequested(this)
+            if (runtimeStarted) {
+                runCatching { P2pandroid.stopNode() }
+                runtimeStarted = false
+            }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
+        }
+        if (!runtimeStarted) {
+            val connectionAddr = intent?.getStringExtra(EXTRA_CONNECTION).orEmpty()
+            runCatching {
+                P2pandroid.startNodeWithOptions(filesDir.absolutePath, connectionAddr)
+                runtimeStarted = true
+            }
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
         HostActivationStore.clearDeviceServiceActivationRequested(this)
+        if (runtimeStarted) {
+            runCatching { P2pandroid.stopNode() }
+            runtimeStarted = false
+        }
         super.onDestroy()
     }
 
@@ -72,14 +90,19 @@ class GomtmForegroundService : Service() {
     companion object {
         private const val ACTION_START = "com.gomtm.swarm.action.START_RUNTIME"
         private const val ACTION_STOP = "com.gomtm.swarm.action.STOP_RUNTIME"
+        private const val EXTRA_CONNECTION = "connection"
         private const val NOTIFICATION_CHANNEL_ID = "gomtm_runtime"
         private const val NOTIFICATION_ID = 41001
 
         fun start(
             context: Context,
+            connectionAddr: String? = null,
         ) {
             val intent = Intent(context, GomtmForegroundService::class.java).apply {
                 action = ACTION_START
+                if (!connectionAddr.isNullOrBlank()) {
+                    putExtra(EXTRA_CONNECTION, connectionAddr)
+                }
             }
             ContextCompat.startForegroundService(context, intent)
         }

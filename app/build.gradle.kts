@@ -32,10 +32,31 @@ val pinnedRuntimeAar = when {
     worktreePinnedRuntimeAar.exists() -> worktreePinnedRuntimeAar
     else -> error("missing gomtm-swarm-android.aar in app/libs or shared worktree fallback")
 }
+val syncPythonAndroidRuntimeScript = project.file("scripts/sync_python_android_runtime.py")
+val generatedBundledPythonRuntimeDir = layout.buildDirectory.dir("generated/pythonRuntime/bundled")
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+}
+
+val syncPythonAndroidRuntime = tasks.register<Exec>("syncPythonAndroidRuntime") {
+    group = "build setup"
+    description = "Vendors the official Python Android runtime into the app build tree"
+
+    inputs.file(syncPythonAndroidRuntimeScript)
+    outputs.dir(generatedBundledPythonRuntimeDir)
+
+    commandLine(
+        "python3",
+        syncPythonAndroidRuntimeScript.absolutePath,
+        "--output-root",
+        generatedBundledPythonRuntimeDir.get().asFile.absolutePath,
+    )
+}
+
+tasks.named("preBuild") {
+    dependsOn(syncPythonAndroidRuntime)
 }
 
 android {
@@ -72,9 +93,15 @@ android {
         jvmTarget = "17"
     }
 
-    buildFeatures {
-        buildConfig = true
-    }
+	externalNativeBuild {
+		cmake {
+			path = file("src/main/c/CMakeLists.txt")
+		}
+	}
+
+	buildFeatures {
+		buildConfig = true
+	}
 
     // 当前公开分发的 app 是最小 Android node shell，优先压缩 native libs，且只产出主流 arm64 包，避免把四个 ABI 的 libgojni.so 全塞进同一个下载 APK。
     packaging {
