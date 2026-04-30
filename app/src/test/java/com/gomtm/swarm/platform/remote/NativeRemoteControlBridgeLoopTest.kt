@@ -3,12 +3,25 @@ package com.gomtm.swarm.platform.remote
 import android.content.Context
 import android.content.ContextWrapper
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeRemoteControlBridgeLoopTest {
+    @Test
+    fun bridgeLoopDoesNotSilentlyReflectMissingNativeApi() {
+        val source = String(Files.readAllBytes(resolveProjectPath("app/src/main/java/com/gomtm/swarm/platform/remote/NativeRemoteControlBridgeLoop.kt")))
+
+        assertFalse(source.contains("getMethod("))
+        assertFalse(source.contains("getOrNull()"))
+        assertFalse(source.contains("?: return \"\""))
+    }
+
     @Test
     fun resolvesPendingPythonStatusRequestThroughBridgeLoop() {
         val bridgeApi = FakeBridgeApi()
@@ -62,5 +75,14 @@ class NativeRemoteControlBridgeLoopTest {
         override fun resolveRemoteControlResponse(responseJson: String) {
             responses.offer(responseJson)
         }
+    }
+
+    private fun resolveProjectPath(relative: String): Path {
+        val candidates = listOf(
+            Paths.get(relative),
+            Paths.get("../$relative"),
+        )
+        return candidates.firstOrNull(Files::exists)
+            ?: error("path not found: $relative")
     }
 }

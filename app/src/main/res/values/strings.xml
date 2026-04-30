@@ -2,7 +2,7 @@
     <string name="app_name">gomtm-swarm</string>
     <string name="connection_invalid_message">连接格式无效</string>
     <string name="connection_required_message">连接地址不能为空</string>
-    <string name="web_loading_message">Loading gomtm /dash/p2p…</string>
+    <string name="web_loading_message">Loading gomtm devices…</string>
     <string name="web_error_message">Unable to open the gomtm Web UI.</string>
     <string name="web_error_reason_format">Unable to open the gomtm Web UI. %1$s</string>
     <string name="accessibility_service_label">gomtm-swarm remote control accessibility</string>

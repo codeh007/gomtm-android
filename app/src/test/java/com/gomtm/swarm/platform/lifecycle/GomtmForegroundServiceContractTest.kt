@@ -16,6 +16,16 @@ class GomtmForegroundServiceContractTest {
         assertFalse(source.contains("P2pandroid.startNodeWithOptions"))
     }
 
+    @Test
+    fun runtimeBridgeDoesNotFallbackToLegacyNodeSurface() {
+        val source = readProjectFile("src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmRuntimeBridge.kt")
+
+        assertTrue(source.contains("RUNTIME_ADDR"))
+        assertFalse(source.contains("getMethod("))
+        assertFalse(source.contains("startNodeWithOptions"))
+        assertFalse(source.contains("stopNode()"))
+    }
+
     private fun readProjectFile(relativePath: String): String {
         val root = File(requireNotNull(System.getProperty("user.dir")))
         return File(root, relativePath).readText()

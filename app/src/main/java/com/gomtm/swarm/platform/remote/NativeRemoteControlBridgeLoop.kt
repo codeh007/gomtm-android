@@ -1,6 +1,6 @@
 package com.gomtm.swarm.platform.remote
 
-import io.nekohasekai.p2pandroid.P2pandroid
+import io.nekohasekai.gomtmruntime.Gomtmruntime
 import java.util.concurrent.atomic.AtomicBoolean
 
 interface NativeRemoteControlBridgeApi {
@@ -9,27 +9,18 @@ interface NativeRemoteControlBridgeApi {
     fun resolveRemoteControlResponse(responseJson: String)
 }
 
-object P2pandroidNativeRemoteControlBridgeApi : NativeRemoteControlBridgeApi {
-    private val pollMethod = runCatching {
-        P2pandroid::class.java.getMethod("pollRemoteControlRequest", Int::class.javaPrimitiveType)
-    }.getOrNull()
-    private val resolveMethod = runCatching {
-        P2pandroid::class.java.getMethod("resolveRemoteControlResponse", String::class.java)
-    }.getOrNull()
-
+object GomtmruntimeNativeRemoteControlBridgeApi : NativeRemoteControlBridgeApi {
     override fun pollRemoteControlRequest(timeoutMs: Int): String {
-        val method = pollMethod ?: return ""
-        return (method.invoke(null, timeoutMs) as? String).orEmpty()
+        return Gomtmruntime.pollRemoteControlRequest(timeoutMs.toLong())
     }
 
     override fun resolveRemoteControlResponse(responseJson: String) {
-        val method = resolveMethod ?: return
-        method.invoke(null, responseJson)
+        Gomtmruntime.resolveRemoteControlResponse(responseJson)
     }
 }
 
 class NativeRemoteControlBridgeLoop(
-    private val bridgeApi: NativeRemoteControlBridgeApi = P2pandroidNativeRemoteControlBridgeApi,
+    private val bridgeApi: NativeRemoteControlBridgeApi = GomtmruntimeNativeRemoteControlBridgeApi,
     private val opsFactory: () -> RemoteControlOps,
     private val webRtcHostFactory: () -> WebRtcScreenHost,
 ) {
