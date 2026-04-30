@@ -13,7 +13,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.gomtm.swarm.MainActivity
 import com.gomtm.swarm.R
-import io.nekohasekai.p2pandroid.P2pandroid
 
 class GomtmForegroundService : Service() {
     private var runtimeStarted = false
@@ -31,7 +30,7 @@ class GomtmForegroundService : Service() {
         if ((intent?.action ?: ACTION_START) == ACTION_STOP) {
             HostActivationStore.clearDeviceServiceActivationRequested(this)
             if (runtimeStarted) {
-                runCatching { P2pandroid.stopNode() }
+                runCatching { GomtmRuntimeBridge.stopRuntime() }
                 runtimeStarted = false
             }
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -41,7 +40,7 @@ class GomtmForegroundService : Service() {
         if (!runtimeStarted) {
             val connectionAddr = intent?.getStringExtra(EXTRA_CONNECTION).orEmpty()
             runCatching {
-                P2pandroid.startNodeWithOptions(filesDir.absolutePath, connectionAddr)
+                GomtmRuntimeBridge.startRuntime(filesDir.absolutePath, connectionAddr)
                 runtimeStarted = true
             }
         }
@@ -51,7 +50,7 @@ class GomtmForegroundService : Service() {
     override fun onDestroy() {
         HostActivationStore.clearDeviceServiceActivationRequested(this)
         if (runtimeStarted) {
-            runCatching { P2pandroid.stopNode() }
+            runCatching { GomtmRuntimeBridge.stopRuntime() }
             runtimeStarted = false
         }
         super.onDestroy()

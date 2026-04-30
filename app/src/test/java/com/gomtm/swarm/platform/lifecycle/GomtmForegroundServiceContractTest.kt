@@ -1,15 +1,17 @@
 package com.gomtm.swarm.platform.lifecycle
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GomtmForegroundServiceContractTest {
     @Test
-    fun foregroundServiceStartsP2pandroidRuntime() {
+    fun foregroundServiceStartsLocalRuntimePrimitive() {
         val source = readProjectFile("src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmForegroundService.kt")
 
-        assertTrue(source.contains("P2pandroid.startNodeWithOptions"))
+        assertTrue(source.contains("startRuntime"))
+        assertFalse(source.contains("P2pandroid.startNodeWithOptions"))
     }
 
     private fun readProjectFile(relativePath: String): String {
