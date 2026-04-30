@@ -11,6 +11,8 @@ class GomtmForegroundServiceContractTest {
         val source = readProjectFile("src/main/java/com/gomtm/swarm/platform/lifecycle/GomtmForegroundService.kt")
 
         assertTrue(source.contains("startRuntime"))
+        assertTrue(source.contains("remoteControlBridge.start()"))
+        assertTrue(source.contains("remoteControlBridge.stop()"))
         assertFalse(source.contains("P2pandroid.startNodeWithOptions"))
     }
 

@@ -13,9 +13,18 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.gomtm.swarm.MainActivity
 import com.gomtm.swarm.R
+import com.gomtm.swarm.platform.remote.AndroidRemoteControlOps
+import com.gomtm.swarm.platform.remote.AndroidWebRtcScreenHost
+import com.gomtm.swarm.platform.remote.NativeRemoteControlBridgeLoop
 
 class GomtmForegroundService : Service() {
     private var runtimeStarted = false
+    private val remoteControlBridge by lazy {
+        NativeRemoteControlBridgeLoop(
+            opsFactory = { AndroidRemoteControlOps(this) },
+            webRtcHostFactory = { AndroidWebRtcScreenHost.forContext(this) },
+        )
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -30,6 +39,7 @@ class GomtmForegroundService : Service() {
         if ((intent?.action ?: ACTION_START) == ACTION_STOP) {
             HostActivationStore.clearDeviceServiceActivationRequested(this)
             if (runtimeStarted) {
+                remoteControlBridge.stop()
                 runCatching { GomtmRuntimeBridge.stopRuntime() }
                 runtimeStarted = false
             }
@@ -41,6 +51,7 @@ class GomtmForegroundService : Service() {
             val connectionAddr = intent?.getStringExtra(EXTRA_CONNECTION).orEmpty()
             runCatching {
                 GomtmRuntimeBridge.startRuntime(filesDir.absolutePath, connectionAddr)
+                remoteControlBridge.start()
                 runtimeStarted = true
             }
         }
@@ -50,6 +61,7 @@ class GomtmForegroundService : Service() {
     override fun onDestroy() {
         HostActivationStore.clearDeviceServiceActivationRequested(this)
         if (runtimeStarted) {
+            remoteControlBridge.stop()
             runCatching { GomtmRuntimeBridge.stopRuntime() }
             runtimeStarted = false
         }

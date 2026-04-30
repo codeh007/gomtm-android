@@ -98,6 +98,8 @@ class ForegroundRuntimeContractTest {
         assertTrue(source.contains("HostActivationStore.markDeviceServiceActivationRequested"))
         assertTrue(source.contains("HostActivationStore.clearDeviceServiceActivationRequested"))
         assertTrue(source.contains("NotificationCompat.Builder"))
+        assertTrue(source.contains("remoteControlBridge.start()"))
+        assertTrue(source.contains("remoteControlBridge.stop()"))
         assertFalse(source.contains("GomtmRuntimeFacade"))
         assertFalse(source.contains("processRemoteControlTick"))
         assertFalse(source.contains("connection is blank"))
