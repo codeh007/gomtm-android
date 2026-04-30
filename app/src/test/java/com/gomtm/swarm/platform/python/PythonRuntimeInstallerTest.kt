@@ -149,6 +149,22 @@ class PythonRuntimeInstallerTest {
     }
 
     @Test
+    fun ensureInstalledKeepsCurrentWrapperScriptsExecutable() {
+        val context = FakeContext()
+        val installer = PythonRuntimeInstaller(context)
+
+        val status = installer.ensureInstalled(
+            sourceApkPath = "/data/app/com.gomtm.swarm/base.apk",
+            nativeLibraryDir = "/data/app/com.gomtm.swarm/lib/arm64",
+        )
+
+        assertTrue(status.installed)
+        assertTrue(File(context.filesDir, "runtime/python/current/bin/python").canExecute())
+        assertTrue(File(context.filesDir, "runtime/python/current/bin/python-real").canExecute())
+        assertTrue(File(context.filesDir, "runtime/python/current/bin/pip").canExecute())
+    }
+
+    @Test
     fun ensureInstalledCopiesBundledLibpythonIntoReleaseWhenSourceTreeExists() {
         val context = FakeContext()
         val bundledRoot = File(context.filesDir, "bundled/python/releases/3.14.4-aarch64")

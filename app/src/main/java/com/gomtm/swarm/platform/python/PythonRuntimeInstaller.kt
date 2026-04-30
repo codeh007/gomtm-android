@@ -72,6 +72,12 @@ class PythonRuntimeInstaller(private val context: Context) {
         pip.setExecutable(true)
     }
 
+    private fun ensureWrapperScriptsExecutable(runtimeRoot: File) {
+        listOf("python-real", "python", "pip").forEach { name ->
+            File(runtimeRoot, "bin/$name").takeIf(File::exists)?.setExecutable(true)
+        }
+    }
+
     fun stageBaseLayout(releaseRoot: File) {
         val stdlibDir = File(releaseRoot, "prefix/lib/python3.14")
         stdlibDir.mkdirs()
@@ -129,6 +135,7 @@ class PythonRuntimeInstaller(private val context: Context) {
             current.deleteRecursively()
         }
         releaseRoot.copyRecursively(current, overwrite = true)
+        ensureWrapperScriptsExecutable(current)
         return inspect()
     }
 
