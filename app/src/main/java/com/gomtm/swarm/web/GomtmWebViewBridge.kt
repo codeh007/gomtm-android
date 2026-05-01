@@ -3,47 +3,40 @@ package com.gomtm.swarm.web
 import android.app.Activity
 import android.webkit.JavascriptInterface
 import com.gomtm.swarm.BuildConfig
-import com.gomtm.swarm.platform.lifecycle.HostActivationStore
+import com.gomtm.swarm.platform.lifecycle.AndroidHostInstallStore
+import com.gomtm.swarm.platform.lifecycle.AndroidHostRuntimeSurface
+import com.gomtm.swarm.platform.lifecycle.AndroidHostStartupPayload
 import org.json.JSONObject
 
 class GomtmWebViewBridge(
     private val activity: Activity,
+    private val runtimeSurfaceProvider: () -> AndroidHostRuntimeSurface,
+    private val onEnsureRuntimeStarted: (AndroidHostStartupPayload) -> Unit,
     private val onScreenCaptureRequested: () -> Unit,
-    private val onDeviceServiceStartRequested: () -> Unit,
-    private val onDeviceServiceStopRequested: () -> Unit,
 ) {
     @JavascriptInterface
     fun getHostInfo(): String {
         return JSONObject()
             .put("hostKind", "android-host")
+            .put("hostInstanceId", AndroidHostInstallStore.getOrCreateHostInstanceId(activity))
             .put("packageName", activity.packageName)
             .put("appVersion", BuildConfig.VERSION_NAME)
             .toString()
     }
 
     @JavascriptInterface
-    fun getActivationSurface(): String {
-        val serviceActivationRequested = HostActivationStore.isDeviceServiceActivationRequested(activity)
+    fun getRuntimeSurface(): String {
+        val surface = runtimeSurfaceProvider()
         return JSONObject()
-            .put("available", true)
-            .put("activationStatus", if (serviceActivationRequested) "activating" else "inactive")
-            .put("hostActionState", if (serviceActivationRequested) "device_service_activation_requested" else "idle")
-            .put("serviceActivationRequested", serviceActivationRequested)
-            .put("canRequestScreenCapture", true)
-            .put("canStartDeviceService", !serviceActivationRequested)
-            .put("canStopDeviceService", serviceActivationRequested)
+            .put("status", surface.status)
+            .put("lastError", surface.lastError)
             .toString()
     }
 
     @JavascriptInterface
-    fun startDeviceService(): String {
-        activity.runOnUiThread { onDeviceServiceStartRequested() }
-        return JSONObject().put("accepted", true).toString()
-    }
-
-    @JavascriptInterface
-    fun stopDeviceService(): String {
-        activity.runOnUiThread { onDeviceServiceStopRequested() }
+    fun ensureRuntimeStarted(payloadJson: String): String {
+        val payload = decodePayload(payloadJson) ?: return JSONObject().put("accepted", false).toString()
+        activity.runOnUiThread { onEnsureRuntimeStarted(payload) }
         return JSONObject().put("accepted", true).toString()
     }
 
@@ -51,5 +44,17 @@ class GomtmWebViewBridge(
     fun requestScreenCapture(): String {
         activity.runOnUiThread { onScreenCaptureRequested() }
         return JSONObject().put("accepted", true).toString()
+    }
+
+    private fun decodePayload(payloadJson: String): AndroidHostStartupPayload? {
+        return runCatching {
+            val json = JSONObject(payloadJson)
+            AndroidHostStartupPayload(
+                deviceId = json.getString("deviceId"),
+                deviceName = json.getString("deviceName"),
+                runtimeCredential = json.getString("runtimeCredential"),
+                credentialVersion = json.getInt("credentialVersion"),
+            )
+        }.getOrNull()
     }
 }

@@ -14,9 +14,12 @@ class GomtmWebViewBridgeContractTest {
 
         assertTrue(source.contains("@JavascriptInterface"))
         assertTrue(Regex("""@JavascriptInterface\s+fun getHostInfo\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun startDeviceService\(\)""").containsMatchIn(source))
-        assertTrue(Regex("""@JavascriptInterface\s+fun stopDeviceService\(\)""").containsMatchIn(source))
+        assertTrue(Regex("""@JavascriptInterface\s+fun getRuntimeSurface\(\)""").containsMatchIn(source))
+        assertTrue(Regex("""@JavascriptInterface\s+fun ensureRuntimeStarted\(payloadJson: String\)""").containsMatchIn(source))
         assertTrue(Regex("""@JavascriptInterface\s+fun requestScreenCapture\(\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun startDeviceService\(\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun stopDeviceService\(\)""").containsMatchIn(source))
+        assertFalse(Regex("""@JavascriptInterface\s+fun retryRuntimeStartup\(\)""").containsMatchIn(source))
         assertFalse(Regex("""@JavascriptInterface\s+fun getConnectionConfig\(\)""").containsMatchIn(source))
         assertFalse(Regex("""@JavascriptInterface\s+fun getRuntimeSnapshot\(\)""").containsMatchIn(source))
         assertFalse(Regex("""@JavascriptInterface\s+fun listDiscoveredPeers\(\)""").containsMatchIn(source))
@@ -44,10 +47,11 @@ class GomtmWebViewBridgeContractTest {
         val source = readProjectFile("app/src/main/java/com/gomtm/swarm/web/GomtmWebViewBridge.kt")
 
         assertTrue(source.contains("hostKind"))
+        assertTrue(source.contains("hostInstanceId"))
         assertTrue(source.contains("packageName"))
         assertTrue(source.contains("appVersion"))
-        assertTrue(source.contains("canStartDeviceService"))
-        assertTrue(source.contains("canStopDeviceService"))
+        assertFalse(source.contains("canStartDeviceService"))
+        assertFalse(source.contains("canStopDeviceService"))
     }
 
     private fun readProjectFile(relative: String): String {

@@ -3,11 +3,11 @@ package com.gomtm.swarm.platform.lifecycle
 import android.content.Context
 
 object GomtmHostActions {
-    fun startDeviceService(context: Context) {
-        GomtmForegroundService.start(context = context)
+    fun ensureRuntimeStarted(context: Context, payload: AndroidHostStartupPayload) {
+        GomtmForegroundService.start(context = context, startupPayload = payload)
     }
 
-    fun stopDeviceService(context: Context) {
-        GomtmForegroundService.stop(context)
+    fun currentRuntimeSurface(context: Context): AndroidHostRuntimeSurface {
+        return GomtmForegroundService.currentRuntimeSurface(context)
     }
 }
