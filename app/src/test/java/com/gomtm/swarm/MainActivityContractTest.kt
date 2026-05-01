@@ -28,6 +28,9 @@ class MainActivityContractTest {
         assertTrue("MainActivity should host GomtmWebViewBridge", source.contains("GomtmWebViewBridge"))
         assertTrue("MainActivity should load the /dash/devices entry URL from BuildConfig", source.contains("BuildConfig.GOMTM_UI_DEVICES_URL"))
         assertTrue("MainActivity should host a WebView", source.contains("WebView"))
+        assertTrue("MainActivity should delegate startup to GomtmHostActions.ensureRuntimeStarted", source.contains("GomtmHostActions.ensureRuntimeStarted"))
+        assertFalse("MainActivity should not keep startDeviceService helper", source.contains("private fun startDeviceService()"))
+        assertFalse("MainActivity should not keep stopDeviceService helper", source.contains("private fun stopDeviceService()"))
         assertFalse("MainActivity should not auto start runtime on create", source.contains("requestRuntimeStartIfNeeded("))
         assertFalse("MainActivity should not keep runtime restart helper", source.contains("requestRuntimeRestart("))
         assertFalse("MainActivity should not import the foreground service directly", source.contains("GomtmForegroundService"))
@@ -42,6 +45,7 @@ class MainActivityContractTest {
         assertTrue("MainActivity should define a dedicated screen capture action", source.contains("ACTION_REQUEST_SCREEN_CAPTURE"))
         assertTrue("MainActivity should handle the dedicated screen capture action", source.contains("intent?.action == ACTION_REQUEST_SCREEN_CAPTURE"))
         assertTrue("MainActivity should route the action to requestScreenCapturePermission", source.contains("requestScreenCapturePermission()"))
+        assertFalse("MainActivity should not keep ACTION_START_DEVICE_SERVICE", source.contains("ACTION_START_DEVICE_SERVICE"))
     }
 
     @Test

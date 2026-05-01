@@ -42,9 +42,8 @@ The active architecture is:
 The app consumes a published `gomtm-swarm-android.aar` and starts the device-side local Go HTTP runtime through the generated `Gomtmruntime` surface. The Android WebView bridge stays intentionally small and only exposes:
 
 - `getHostInfo()`
-- `getActivationSurface()`
-- `startDeviceService()`
-- `stopDeviceService()`
+- `getRuntimeSurface()`
+- `ensureRuntimeStarted(payloadJson)`
 - `requestScreenCapture()`
 
 The product UI lives in the shared `/dash/devices` Web experience. The Android shell is responsible for loading that entry URL and exposing host primitives, not for keeping a parallel native dashboard.

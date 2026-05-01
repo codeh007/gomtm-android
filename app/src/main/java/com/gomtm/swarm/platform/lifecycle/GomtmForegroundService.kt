@@ -31,41 +31,69 @@ class GomtmForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIFICATION_ID, buildNotification())
-        HostActivationStore.markDeviceServiceActivationRequested(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        HostActivationStore.markDeviceServiceActivationRequested(this)
         if ((intent?.action ?: ACTION_START) == ACTION_STOP) {
-            HostActivationStore.clearDeviceServiceActivationRequested(this)
             if (runtimeStarted) {
                 remoteControlBridge.stop()
                 runCatching { GomtmRuntimeBridge.stopRuntime() }
                 runtimeStarted = false
             }
+            AndroidHostInstallStore.clearStartupPayload(this)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
+
+        val payload = intent?.getStringExtra(EXTRA_STARTUP_PAYLOAD_JSON)?.let(::decodePayload)
+            ?: AndroidHostInstallStore.restoreSavedStartupPayload(this)
+
+        if (payload == null) {
+            runtimeStarted = false
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         if (!runtimeStarted) {
-            val connectionAddr = intent?.getStringExtra(EXTRA_CONNECTION).orEmpty()
-            runCatching {
-                GomtmRuntimeBridge.startRuntime(filesDir.absolutePath, connectionAddr)
-                remoteControlBridge.start()
-                runtimeStarted = true
-            }
+            startRuntimeFromPayload(payload)
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
-        HostActivationStore.clearDeviceServiceActivationRequested(this)
         if (runtimeStarted) {
             remoteControlBridge.stop()
             runCatching { GomtmRuntimeBridge.stopRuntime() }
             runtimeStarted = false
         }
         super.onDestroy()
+    }
+
+    private fun startRuntimeFromPayload(payload: AndroidHostStartupPayload): Result<Unit> {
+        return runCatching {
+            AndroidHostInstallStore.persistStartupPayload(this, payload)
+            GomtmRuntimeBridge.startRuntime(filesDir.absolutePath, payload.runtimeCredential)
+            remoteControlBridge.start()
+            runtimeStarted = true
+            clearRuntimeError(this)
+        }.onFailure { error ->
+            runtimeStarted = false
+            persistRuntimeError(this, error.message ?: "runtime_start_failed")
+        }
+    }
+
+    private fun decodePayload(payloadJson: String): AndroidHostStartupPayload? {
+        return runCatching {
+            val json = org.json.JSONObject(payloadJson)
+            AndroidHostStartupPayload(
+                deviceId = json.getString("deviceId"),
+                deviceName = json.getString("deviceName"),
+                runtimeCredential = json.getString("runtimeCredential"),
+                credentialVersion = json.getInt("credentialVersion"),
+            )
+        }.getOrNull()
     }
 
     private fun buildNotification(): Notification {
@@ -101,25 +129,62 @@ class GomtmForegroundService : Service() {
     companion object {
         private const val ACTION_START = "com.gomtm.swarm.action.START_RUNTIME"
         private const val ACTION_STOP = "com.gomtm.swarm.action.STOP_RUNTIME"
-        private const val EXTRA_CONNECTION = "connection"
+        private const val EXTRA_STARTUP_PAYLOAD_JSON = "startup_payload_json"
         private const val NOTIFICATION_CHANNEL_ID = "gomtm_runtime"
         private const val NOTIFICATION_ID = 41001
+        private const val ERROR_PREFS_NAME = "gomtm_host_shell"
+        private const val KEY_RUNTIME_LAST_ERROR = "runtime_last_error"
 
         fun start(
             context: Context,
-            connectionAddr: String? = null,
+            startupPayload: AndroidHostStartupPayload,
         ) {
             val intent = Intent(context, GomtmForegroundService::class.java).apply {
                 action = ACTION_START
-                if (!connectionAddr.isNullOrBlank()) {
-                    putExtra(EXTRA_CONNECTION, connectionAddr)
-                }
+                putExtra(EXTRA_STARTUP_PAYLOAD_JSON, org.json.JSONObject()
+                    .put("deviceId", startupPayload.deviceId)
+                    .put("deviceName", startupPayload.deviceName)
+                    .put("runtimeCredential", startupPayload.runtimeCredential)
+                    .put("credentialVersion", startupPayload.credentialVersion)
+                    .toString())
             }
             ContextCompat.startForegroundService(context, intent)
         }
 
         fun stop(context: Context) {
             context.startService(Intent(context, GomtmForegroundService::class.java).apply { action = ACTION_STOP })
+        }
+
+        fun currentRuntimeSurface(context: Context): AndroidHostRuntimeSurface {
+            val saved = AndroidHostInstallStore.restoreSavedStartupPayload(context)
+            val lastError = readRuntimeError(context)
+            return when {
+                saved == null -> AndroidHostRuntimeSurface(status = "sign_in_required", lastError = null)
+                GomtmRuntimeBridge.isRuntimeHttpReady() -> AndroidHostRuntimeSurface(status = "running", lastError = null)
+                !lastError.isNullOrBlank() -> AndroidHostRuntimeSurface(status = "error", lastError = lastError)
+                else -> AndroidHostRuntimeSurface(status = "error", lastError = "runtime_not_ready")
+            }
+        }
+
+        private fun readRuntimeError(context: Context): String? {
+            return context.getSharedPreferences(ERROR_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_RUNTIME_LAST_ERROR, null)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+        }
+
+        private fun persistRuntimeError(context: Context, message: String) {
+            context.getSharedPreferences(ERROR_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_RUNTIME_LAST_ERROR, message)
+                .apply()
+        }
+
+        private fun clearRuntimeError(context: Context) {
+            context.getSharedPreferences(ERROR_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .remove(KEY_RUNTIME_LAST_ERROR)
+                .apply()
         }
     }
 }
