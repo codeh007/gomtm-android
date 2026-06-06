@@ -88,6 +88,8 @@ class MainActivityContractTest {
             "menu_reconnect_runtime",
             "connection_input_hint",
             "connection_save_action",
+            "connection_invalid_message",
+            "connection_required_message",
             "surface_version_format",
             "peer_suffix_placeholder",
             "peer_suffix_unavailable",

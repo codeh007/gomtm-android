@@ -80,15 +80,11 @@ The current Android shell has been intentionally reduced to:
 
 Current package boundaries:
 
-- `com.gomtm.swarm.runtime` only hosts shell-facing DTOs and runtime-facing seams
-- `com.gomtm.swarm.platform.*` only hosts Android native components and device capability adapters
-- `com.gomtm.swarm.shell` only hosts local shell persistence
+- `com.gomtm.swarm.platform.lifecycle` hosts Android lifecycle, foreground service, host install, and runtime bridge components
+- `com.gomtm.swarm.platform.remote` hosts remote-control protocol handling and device capability adapters
+- `com.gomtm.swarm.platform.python` hosts Python runtime installation and probe support
+- `com.gomtm.swarm.shell` hosts local Node runtime setup and probe helpers
 - `com.gomtm.swarm.web` only hosts the WebView bridge surface
 - the old catch-all `com.gomtm.swarm.swarm` package is no longer the canonical source layout
 
 `MainActivity` now loads the shared `BuildConfig.GOMTM_UI_DEVICES_URL` Web entry directly. The embedded `WebView` does not enforce path allowlists or reroute normal gomtmui navigations out to an external browser. If that page cannot load, the only native fallback is a minimal error text surface; the old native runtime dashboard is no longer a product UI.
-
-## Related docs
-
-- [Roadmap](docs/roadmap.md)
-- [Swarm runtime integration](docs/swarm-runtime-integration.md)

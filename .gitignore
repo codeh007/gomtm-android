@@ -12,7 +12,7 @@ build/
 keystore.properties
 app/libs/*.aar
 .tmp_scripts
-graphify-out/cache
+graphify-out/
 .gitnexus
 dist
 .worktrees/
